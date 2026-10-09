@@ -19,4 +19,4 @@ def scan_repository(path):
         print("Scanning:",file_path)
     try:
         with open (path,"r",encoding="UTF-8") as f :
-            
+            source = f.read()
