@@ -14,4 +14,5 @@ def scan_repository(path):
         for file in files:
             if not file.endswith(".py"):
                 continue
-        
+        file_path = os.path.join(root,file)
+        print("Scanning:",file_path)
