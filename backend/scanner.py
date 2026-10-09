@@ -13,7 +13,6 @@ def scan_repository(path):
     dir_ignore = {".git", ".venv", "node_modules", "__pycache__", "venv"}
     for root, dirs, files in os.walk(path):
         dirs[:] = [d for d in dirs if d not in dir_ignore]
-
         for file in files:
             if not file.endswith(".py"):
                 continue
