@@ -22,7 +22,6 @@ def scan_repository(path):
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     source_code = f.read()
-
                 tree = ast.parse(source_code, filename=file_path)
 
             except (SyntaxError, UnicodeDecodeError, OSError) as e:
