@@ -18,4 +18,5 @@ def scan_repository(path):
         file_path = os.path.join(root,file)
         print("Scanning:",file_path)
     try:
-        with open (path,"r",)
+        with open (path,"r",encoding="UTF-8") as f :
+            
