@@ -1,5 +1,5 @@
 import os
-def scan_repository (path):
+def scan_repository(path):
     nodes =[]
     edges=[]
     errors=[]
