@@ -17,3 +17,4 @@ def scan_repository(path):
                 continue
         file_path = os.path.join(root,file)
         print("Scanning:",file_path)
+    try:
