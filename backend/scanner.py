@@ -9,7 +9,6 @@ def scan_repository(path):
         raise FileNotFoundError("Repo path does not exist")
     if not os.path.isdir(path):
         raise NotADirectoryError("The provided path is not a directory")
-
     print("Repository path is valid")
 
     dir_ignore = {".git", ".venv", "node_modules", "__pycache__", "venv"}
