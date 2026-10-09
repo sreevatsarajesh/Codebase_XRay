@@ -1,6 +1,5 @@
 from scanner import scan_repository
 import json
-
 path = input("Enter the path to a Python project: ").strip()
 
 try:
