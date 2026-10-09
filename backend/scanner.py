@@ -1,6 +1,5 @@
 import os
 import ast
-
 def scan_repository(path):
     nodes = []
     edges = []
