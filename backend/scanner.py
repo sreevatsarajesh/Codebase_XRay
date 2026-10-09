@@ -20,3 +20,5 @@ def scan_repository(path):
     try:
         with open (path,"r",encoding="UTF-8") as f :
             source = f.read()
+        tree=ast.parse(source_code,filename=filepath)
+    except:
