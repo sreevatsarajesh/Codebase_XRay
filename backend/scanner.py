@@ -36,7 +36,6 @@ def scan_repository(path):
                 "type": "file",
                 "path": relative_path
             }
-
             nodes.append(file_node)
 
     return {
