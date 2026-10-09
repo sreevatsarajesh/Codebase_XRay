@@ -23,5 +23,6 @@ def scan_repository(path):
         tree=ast.parse(source_code,filename=filepath)
     except(SyntaxError,UnicodeDecodeError,OSError) as e:
         errors.append(
-            
+            "file":file_path
+            "error":str(e)
         )
