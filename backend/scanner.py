@@ -56,7 +56,6 @@ def scan_repository(path):
                         "line": item.lineno
                     }
                     nodes.append(class_node)
-
     return {
         "nodes": nodes,
         "edges": edges,
