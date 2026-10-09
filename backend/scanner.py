@@ -18,7 +18,6 @@ def scan_repository(path):
                 continue
             file_path = os.path.join(root, file)
             print("Scanning:", file_path)
-
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     source_code = f.read()
