@@ -37,7 +37,6 @@ def scan_repository(path):
             }
             nodes.append(file_node)
             files_scanned += 1
-
             for item in ast.walk(tree):
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     function_node = {
