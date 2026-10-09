@@ -29,7 +29,6 @@ def scan_repository(path):
                     "error": str(e)
                 })
                 continue
-
             relative_path = os.path.relpath(file_path, path)
 
             file_node = {
