@@ -47,7 +47,6 @@ def scan_repository(path):
                         "line": item.lineno
                     }
                     nodes.append(function_node)
-
                 elif isinstance(item, ast.ClassDef):
                     class_node = {
                         "id": f"{relative_path}::{item.name}",
