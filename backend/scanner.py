@@ -12,4 +12,6 @@ def scan_repository(path):
     for root,dirs,files in os.walk(path):
         dirs[:]=[d for d in dirs if d not in dir_ignore]
         for file in files:
-            if not 
+            if not file.endswith(".py"):
+                continue
+        
