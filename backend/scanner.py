@@ -1,5 +1,5 @@
 import os
-def scan_repositories(path):
+def scan_repository (path):
     nodes =[]
     edges=[]
     errors=[]
@@ -9,4 +9,3 @@ def scan_repositories(path):
         raise NotADirectoryError("The provided path is not a directory")
     print("Repository path is valid")
     dir_ignore = [".gitignore",".venv","node_modules","__pycache__","venv"]
-    
