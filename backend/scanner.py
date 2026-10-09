@@ -30,7 +30,6 @@ def scan_repository(path):
                 })
                 continue
             relative_path = os.path.relpath(file_path, path)
-
             file_node = {
                 "id": relative_path,
                 "label": os.path.basename(file_path),
