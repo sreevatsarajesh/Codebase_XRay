@@ -12,7 +12,6 @@ def scan_repository(path):
         raise NotADirectoryError("The provided path is not a directory")
     print("Repository path is valid")
     dir_ignore = {".git", ".venv", "node_modules", "__pycache__", "venv"}
-
     for root, dirs, files in os.walk(path):
         dirs[:] = [d for d in dirs if d not in dir_ignore]
 
