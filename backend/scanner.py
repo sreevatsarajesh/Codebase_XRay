@@ -7,7 +7,6 @@ def scan_repository(path):
     files_scanned = 0
     if not os.path.exists(path):
         raise FileNotFoundError("Repo path does not exist")
-
     if not os.path.isdir(path):
         raise NotADirectoryError("The provided path is not a directory")
 
