@@ -5,7 +5,6 @@ def scan_repository(path):
     edges = []
     errors = []
     files_scanned = 0
-
     if not os.path.exists(path):
         raise FileNotFoundError("Repo path does not exist")
 
