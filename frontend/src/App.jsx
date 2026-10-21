@@ -13,7 +13,6 @@ import {
 import {
   Activity,
   AlertCircle,
-  ArrowDownUp,
   Box,
   CheckCircle2,
   ChevronRight,
@@ -34,7 +33,6 @@ import "@xyflow/react/dist/style.css";
 import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000";
-
 const DEFAULT_PATH =
   "/Users/sreevatsarajesh/Documents/GitHub/cybersecuritylabs";
 
@@ -54,37 +52,77 @@ function FileNode({ data, selected }) {
   );
 }
 
+function FolderGroupNode({ data }) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
+        padding: "14px 16px",
+        border: "1px solid #293858",
+        borderRadius: "14px",
+        background: "rgba(17, 26, 44, 0.55)",
+        pointerEvents: "none"
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          color: "#aebfff",
+          fontSize: "12px",
+          fontWeight: 600,
+          minWidth: 0
+        }}
+      >
+        <FolderGit2 size={15} />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap"
+          }}
+        >
+          {data.directory}
+        </span>
+        <span
+          style={{
+            color: "#7483a4",
+            marginLeft: "auto",
+            whiteSpace: "nowrap"
+          }}
+        >
+          {data.count} files
+        </span>
+      </div>
+    </div>
+  );
+}
+
 const nodeTypes = {
-  fileNode: FileNode
+  fileNode: FileNode,
+  folderGroup: FolderGroupNode
 };
 
-f
 function makeGraph(result) {
   const files = (result.nodes || [])
     .filter((node) => node.type === "file")
-    .sort((a, b) => {
-      const directoryA = a.path.includes("/")
-        ? a.path.substring(0, a.path.lastIndexOf("/"))
-        : "";
-      const directoryB = b.path.includes("/")
-        ? b.path.substring(0, b.path.lastIndexOf("/"))
-        : "";
-
-      return directoryA.localeCompare(directoryB) ||
-        a.label.localeCompare(b.label);
-    });
+    .sort((a, b) => a.path.localeCompare(b.path));
 
   const fileIds = new Set(files.map((file) => file.id));
-
   const graphEdges = (result.edges || []).filter(
     (edge) => fileIds.has(edge.source) && fileIds.has(edge.target)
   );
 
   const nodeWidth = 244;
   const nodeHeight = 69;
+  const paddingX = 24;
+  const paddingTop = 50;
+  const paddingBottom = 24;
 
   const layout = new dagre.graphlib.Graph();
-
   layout.setDefaultEdgeLabel(() => ({}));
   layout.setGraph({
     rankdir: "LR",
@@ -110,9 +148,11 @@ function makeGraph(result) {
     });
   });
 
-  layout.nodes().length && dagre.layout(layout);
+  if (files.length) {
+    dagre.layout(layout);
+  }
 
-  const nodes = files.map((file) => {
+  const fileNodes = files.map((file) => {
     const position = layout.node(file.id);
     const directory = file.path.includes("/")
       ? file.path.substring(0, file.path.lastIndexOf("/"))
@@ -125,6 +165,7 @@ function makeGraph(result) {
         x: position.x - nodeWidth / 2,
         y: position.y - nodeHeight / 2
       },
+      zIndex: 1,
       data: {
         label: file.label,
         path: file.path,
@@ -132,6 +173,62 @@ function makeGraph(result) {
         type: file.type
       }
     };
+  });
+
+  const directoryGroups = new Map();
+
+  fileNodes.forEach((node) => {
+    const directory = node.data.directory;
+
+    if (!directoryGroups.has(directory)) {
+      directoryGroups.set(directory, []);
+    }
+
+    directoryGroups.get(directory).push(node);
+  });
+
+  const folderNodes = [];
+
+  directoryGroups.forEach((groupFiles, directory) => {
+    const minX = Math.min(
+      ...groupFiles.map((node) => node.position.x)
+    );
+    const minY = Math.min(
+      ...groupFiles.map((node) => node.position.y)
+    );
+    const maxX = Math.max(
+      ...groupFiles.map((node) => node.position.x + nodeWidth)
+    );
+    const maxY = Math.max(
+      ...groupFiles.map((node) => node.position.y + nodeHeight)
+    );
+
+    const width = maxX - minX + paddingX * 2;
+    const height = maxY - minY + paddingTop + paddingBottom;
+
+    folderNodes.push({
+      id: `folder-${directory}`,
+      type: "folderGroup",
+      position: {
+        x: minX - paddingX,
+        y: minY - paddingTop
+      },
+      style: {
+        width,
+        height
+      },
+      width,
+      height,
+      zIndex: -1,
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      focusable: false,
+      data: {
+        directory,
+        count: groupFiles.length
+      }
+    });
   });
 
   const edges = graphEdges.map((edge, index) => ({
@@ -158,7 +255,21 @@ function makeGraph(result) {
     }
   }));
 
-  return { nodes, edges };
+  return {
+    nodes: [...folderNodes, ...fileNodes],
+    edges
+  };
+}
+
+function StatCard({ icon, label, value, note, tone }) {
+  return (
+    <div className="stat-card">
+      <div className={`stat-icon ${tone}`}>{icon}</div>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-note">{note}</div>
+    </div>
+  );
 }
 
 function AppContent() {
@@ -219,19 +330,34 @@ function AppContent() {
     [result]
   );
 
+  const fileNodes = useMemo(
+    () => graph.nodes.filter((node) => node.type === "fileNode"),
+    [graph.nodes]
+  );
+
   const visibleNodes = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) {
-      return graph.nodes;
-    }
+    const matchingFiles = !query
+      ? fileNodes
+      : fileNodes.filter(
+          (node) =>
+            node.data.label.toLowerCase().includes(query) ||
+            node.data.path.toLowerCase().includes(query)
+        );
 
-    return graph.nodes.filter(
-      (node) =>
-        node.data.label.toLowerCase().includes(query) ||
-        node.data.path.toLowerCase().includes(query)
+    const visibleDirectories = new Set(
+      matchingFiles.map((node) => node.data.directory)
     );
-  }, [graph.nodes, search]);
+
+    const folders = graph.nodes.filter(
+      (node) =>
+        node.type === "folderGroup" &&
+        visibleDirectories.has(node.data.directory)
+    );
+
+    return [...folders, ...matchingFiles];
+  }, [fileNodes, graph.nodes, search]);
 
   const visibleNodeIds = useMemo(
     () => new Set(visibleNodes.map((node) => node.id)),
@@ -249,17 +375,29 @@ function AppContent() {
   );
 
   const onNodeClick = useCallback((_, node) => {
-    setSelectedNode(node);
+    if (node.type === "fileNode") {
+      setSelectedNode(node);
+    }
   }, []);
 
   const statistics = result?.statistics || {};
-  const fileCount = graph.nodes.length;
+  const fileCount = fileNodes.length;
+
   const functionCount = (result?.nodes || []).filter(
     (node) => node.type === "function"
   ).length;
+
   const classCount = (result?.nodes || []).filter(
     (node) => node.type === "class"
   ).length;
+
+  const selectedOutgoing = selectedNode
+    ? graph.edges.filter((edge) => edge.source === selectedNode.id)
+    : [];
+
+  const selectedIncoming = selectedNode
+    ? graph.edges.filter((edge) => edge.target === selectedNode.id)
+    : [];
 
   return (
     <div className="app-shell">
@@ -276,23 +414,34 @@ function AppContent() {
 
         <div className="sidebar-label">WORKSPACE</div>
 
-        <button className="side-link active">
+        <button
+          className={`side-link ${activeTab === "overview" ? "active" : ""}`}
+          onClick={() => setActiveTab("overview")}
+        >
           <Layers3 size={17} />
           <span>Overview</span>
           <ChevronRight size={15} className="side-chevron" />
         </button>
 
-        <button className="side-link" onClick={() => setActiveTab("graph")}>
+        <button
+          className={`side-link ${activeTab === "graph" ? "active" : ""}`}
+          onClick={() => setActiveTab("graph")}
+        >
           <GitBranch size={17} />
           <span>Dependency graph</span>
         </button>
 
-        <button className="side-link" onClick={() => setActiveTab("files")}>
+        <button
+          className={`side-link ${activeTab === "files" ? "active" : ""}`}
+          onClick={() => setActiveTab("files")}
+        >
           <FolderGit2 size={17} />
           <span>Repository files</span>
         </button>
 
-        <div className="sidebar-label sidebar-label-spaced">ANALYSIS</div>
+        <div className="sidebar-label sidebar-label-spaced">
+          ANALYSIS
+        </div>
 
         <div className="sidebar-info">
           <ShieldCheck size={17} />
@@ -310,7 +459,9 @@ function AppContent() {
             <span>Local API</span>
             <span className="connection-state">DEV</span>
           </div>
-          <div className="sidebar-version">CODEBASE X-RAY · v0.1.0</div>
+          <div className="sidebar-version">
+            CODEBASE X-RAY · v0.1.0
+          </div>
         </div>
       </aside>
 
@@ -343,12 +494,16 @@ function AppContent() {
                 your software architecture.
               </p>
             </div>
+
             <button
               className="secondary-button"
               onClick={runScan}
               disabled={loading}
             >
-              <RefreshCw size={15} className={loading ? "spin" : ""} />
+              <RefreshCw
+                size={15}
+                className={loading ? "spin" : ""}
+              />
               Rescan repository
             </button>
           </section>
@@ -380,7 +535,12 @@ function AppContent() {
                   aria-label="Repository path"
                 />
               </div>
-              <button className="primary-button" type="submit" disabled={loading}>
+
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={loading}
+              >
                 {loading ? (
                   <LoaderCircle size={17} className="spin" />
                 ) : (
@@ -394,7 +554,10 @@ function AppContent() {
               <div className="error-banner">
                 <AlertCircle size={17} />
                 <span>{error}</span>
-                <button onClick={() => setError("")} aria-label="Dismiss error">
+                <button
+                  onClick={() => setError("")}
+                  aria-label="Dismiss error"
+                >
                   <X size={15} />
                 </button>
               </div>
@@ -474,9 +637,10 @@ function AppContent() {
                     </button>
                   )}
                 </div>
+
                 <div className="tab-switch">
                   <button
-                    className={activeTab === "graph" ? "selected" : ""}
+                    className={activeTab !== "files" ? "selected" : ""}
                     onClick={() => setActiveTab("graph")}
                   >
                     <Network size={14} />
@@ -505,11 +669,13 @@ function AppContent() {
                   <div className="empty-node empty-node-two" />
                   <div className="empty-node empty-node-three" />
                 </div>
+
                 <h3>Your codebase, visualized.</h3>
                 <p>
                   Run your first scan to discover files and map their
                   relationships.
                 </p>
+
                 <button
                   className="primary-button"
                   onClick={runScan}
@@ -523,10 +689,57 @@ function AppContent() {
                   {loading ? "Analyzing..." : "Analyze repository"}
                 </button>
               </div>
-            ) : activeTab === "graph" ? (
+            ) : activeTab === "files" ? (
+              <div className="file-list">
+                <div className="file-list-heading">
+                  <span>File name</span>
+                  <span>Directory</span>
+                  <span>Connections</span>
+                </div>
+
+                {visibleNodes
+                  .filter((node) => node.type === "fileNode")
+                  .map((node) => (
+                    <button
+                      className={`file-row ${
+                        selectedNode?.id === node.id ? "active" : ""
+                      }`}
+                      key={node.id}
+                      onClick={() => setSelectedNode(node)}
+                    >
+                      <span className="file-name-cell">
+                        <FileCode2 size={16} />
+                        {node.data.label}
+                      </span>
+                      <span className="file-directory-cell">
+                        {node.data.directory}
+                      </span>
+                      <span className="file-edge-count">
+                        {
+                          graph.edges.filter(
+                            (edge) =>
+                              edge.source === node.id ||
+                              edge.target === node.id
+                          ).length
+                        }
+                      </span>
+                    </button>
+                  ))}
+
+                {!visibleNodes.some(
+                  (node) => node.type === "fileNode"
+                ) && (
+                  <div className="no-results">
+                    No files match your search.
+                  </div>
+                )}
+              </div>
+            ) : (
               <div className="graph-layout">
                 <div className="graph-canvas">
-                  {visibleNodes.length ? (
+                  {visibleNodes.some(
+                    (node) => node.type === "fileNode"
+                  ) ? (
                     <ReactFlow
                       nodes={visibleNodes}
                       edges={visibleEdges}
@@ -541,7 +754,11 @@ function AppContent() {
                       <Background color="#273149" gap={22} size={1} />
                       <Controls />
                       <MiniMap
-                        nodeColor="#6477ff"
+                        nodeColor={(node) =>
+                          node.type === "folderGroup"
+                            ? "#293858"
+                            : "#6477ff"
+                        }
                         maskColor="rgba(8, 12, 23, 0.75)"
                       />
                     </ReactFlow>
@@ -564,7 +781,9 @@ function AppContent() {
                   <aside className="details-panel">
                     <div className="details-heading">
                       <div>
-                        <div className="details-eyebrow">FILE INSPECTOR</div>
+                        <div className="details-eyebrow">
+                          FILE INSPECTOR
+                        </div>
                         <h3>File details</h3>
                       </div>
                       <button
@@ -592,73 +811,45 @@ function AppContent() {
                     <div className="detail-section">
                       <div className="detail-label">DEPENDENCIES</div>
                       <div className="detail-count">
-                        {graph.edges.filter(
-                          (edge) => edge.source === selectedNode.id
-                        ).length}{" "}
-                        outgoing imports
+                        {selectedOutgoing.length} outgoing imports
                       </div>
                       <div className="detail-count">
-                        {graph.edges.filter(
-                          (edge) => edge.target === selectedNode.id
-                        ).length}{" "}
-                        incoming imports
+                        {selectedIncoming.length} incoming imports
                       </div>
                     </div>
 
                     <div className="detail-section">
                       <div className="detail-label">DIRECT IMPORTS</div>
-                      {graph.edges.filter(
-                        (edge) => edge.source === selectedNode.id
-                      ).length ? (
-                        graph.edges
-                          .filter((edge) => edge.source === selectedNode.id)
-                          .map((edge) => (
-                            <div className="dependency-item" key={edge.id}>
-                              <FileCode2 size={14} />
-                              <span>{edge.target.split("/").pop()}</span>
-                            </div>
-                          ))
+                      {selectedOutgoing.length ? (
+                        selectedOutgoing.map((edge) => (
+                          <div className="dependency-item" key={edge.id}>
+                            <FileCode2 size={14} />
+                            <span>{edge.target.split("/").pop()}</span>
+                          </div>
+                        ))
                       ) : (
-                        <div className="muted-text">No resolved imports.</div>
+                        <div className="muted-text">
+                          No resolved imports.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="detail-section">
+                      <div className="detail-label">IMPORTED BY</div>
+                      {selectedIncoming.length ? (
+                        selectedIncoming.map((edge) => (
+                          <div className="dependency-item" key={edge.id}>
+                            <FileCode2 size={14} />
+                            <span>{edge.source.split("/").pop()}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="muted-text">
+                          No files import this file.
+                        </div>
                       )}
                     </div>
                   </aside>
-                )}
-              </div>
-            ) : (
-              <div className="file-list">
-                <div className="file-list-heading">
-                  <span>File name</span>
-                  <span>Directory</span>
-                  <span>Connections</span>
-                </div>
-                {visibleNodes.map((node) => (
-                  <button
-                    className={`file-row ${
-                      selectedNode?.id === node.id ? "active" : ""
-                    }`}
-                    key={node.id}
-                    onClick={() => setSelectedNode(node)}
-                  >
-                    <span className="file-name-cell">
-                      <FileCode2 size={16} />
-                      {node.data.label}
-                    </span>
-                    <span className="file-directory-cell">
-                      {node.data.directory}
-                    </span>
-                    <span className="file-edge-count">
-                      {graph.edges.filter(
-                        (edge) =>
-                          edge.source === node.id || edge.target === node.id
-                      ).length}
-                    </span>
-                  </button>
-                ))}
-                {!visibleNodes.length && (
-                  <div className="no-results">
-                    No files match your search.
-                  </div>
                 )}
               </div>
             )}
@@ -673,17 +864,6 @@ function AppContent() {
           </footer>
         </div>
       </main>
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value, note, tone }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${tone}`}>{icon}</div>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      <div className="stat-note">{note}</div>
     </div>
   );
 }
