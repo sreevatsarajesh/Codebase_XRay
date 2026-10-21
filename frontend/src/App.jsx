@@ -58,30 +58,62 @@ const nodeTypes = {
   fileNode: FileNode
 };
 
+f
 function makeGraph(result) {
-  const files = (result.nodes || []).filter(
-    (node) => node.type === "file"
-  );
+  const files = (result.nodes || [])
+    .filter((node) => node.type === "file")
+    .sort((a, b) => {
+      const directoryA = a.path.includes("/")
+        ? a.path.substring(0, a.path.lastIndexOf("/"))
+        : "";
+      const directoryB = b.path.includes("/")
+        ? b.path.substring(0, b.path.lastIndexOf("/"))
+        : "";
+
+      return directoryA.localeCompare(directoryB) ||
+        a.label.localeCompare(b.label);
+    });
 
   const fileIds = new Set(files.map((file) => file.id));
+
   const graphEdges = (result.edges || []).filter(
     (edge) => fileIds.has(edge.source) && fileIds.has(edge.target)
   );
 
-  const degree = new Map(files.map((file) => [file.id, 0]));
+  const nodeWidth = 244;
+  const nodeHeight = 69;
 
-  graphEdges.forEach((edge) => {
-    degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
-    degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+  const layout = new dagre.graphlib.Graph();
+
+  layout.setDefaultEdgeLabel(() => ({}));
+  layout.setGraph({
+    rankdir: "LR",
+    nodesep: 65,
+    ranksep: 115,
+    edgesep: 30,
+    marginx: 40,
+    marginy: 40,
+    ranker: "network-simplex"
   });
 
-  const sortedFiles = [...files].sort(
-    (a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0)
-  );
+  files.forEach((file) => {
+    layout.setNode(file.id, {
+      width: nodeWidth,
+      height: nodeHeight
+    });
+  });
 
-  const columns = Math.max(1, Math.ceil(Math.sqrt(sortedFiles.length)));
+  graphEdges.forEach((edge) => {
+    layout.setEdge(edge.source, edge.target, {
+      weight: 2,
+      minlen: 1
+    });
+  });
 
-  const nodes = sortedFiles.map((file, index) => {
+  layout.nodes().length && dagre.layout(layout);
+
+  const nodes = files.map((file) => {
+    const position = layout.node(file.id);
     const directory = file.path.includes("/")
       ? file.path.substring(0, file.path.lastIndexOf("/"))
       : "Root";
@@ -90,8 +122,8 @@ function makeGraph(result) {
       id: file.id,
       type: "fileNode",
       position: {
-        x: (index % columns) * 300,
-        y: Math.floor(index / columns) * 135
+        x: position.x - nodeWidth / 2,
+        y: position.y - nodeHeight / 2
       },
       data: {
         label: file.label,
@@ -108,7 +140,7 @@ function makeGraph(result) {
     target: edge.target,
     label: "imports",
     type: "smoothstep",
-    animated: true,
+    animated: false,
     markerEnd: {
       type: MarkerType.ArrowClosed
     },
