@@ -1,4 +1,4 @@
-
+import Footer from "./footer.jsx";
 import dagre from "@dagrejs/dagre";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1457,12 +1457,8 @@ function AppContent() {
         </section>
       </main>
 
-      {!isGraphFullscreen && (
-        <footer>
-          <span>CODEBASE X-RAY TERMINAL</span>
-          <span>BUILD 2026.10</span>
-        </footer>
-      )}
+      {!isGraphFullscreen && <Footer />}
+
     </div>
   );
 }
