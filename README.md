@@ -482,8 +482,8 @@ For significant changes, open an issue first to discuss the proposed implementat
 
 ## License
 
-No license has been specified here. Add a `LICENSE` file and update this section once the project's licensing terms have been decided.
-
+This project is licensed under the MIT License. See the [LICENSE](LICENSE)
+file for details.
 ---
 
 ## Author
