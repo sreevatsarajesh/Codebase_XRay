@@ -6,10 +6,6 @@ Codebase X-Ray is a static code intelligence and repository visualization tool t
 
 Instead of manually navigating files and imports, developers can explore a repository visually, inspect individual files, and understand how different parts of a codebase connect.
 
-<p align="center">
-  <img src="screenshots/architecture-graph.png" alt="Codebase X-Ray architecture graph" width="100%">
-</p>
-
 ## Table of Contents
 
 - [Overview](#overview)
