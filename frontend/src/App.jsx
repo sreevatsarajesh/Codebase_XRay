@@ -1,32 +1,26 @@
+
 import dagre from "@dagrejs/dagre";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   ReactFlowProvider,
+  useReactFlow,
   Handle,
   Position,
   MarkerType
 } from "@xyflow/react";
 import {
-  Activity,
   AlertCircle,
-  Box,
-  CheckCircle2,
-  ChevronRight,
-  Code2,
   FileCode2,
   FolderGit2,
-  GitBranch,
   Layers3,
-  LoaderCircle,
   Network,
   RefreshCw,
-  Search,
-  ShieldCheck,
-  Sparkles,
+  Folder,
+  Maximize2,
+  Minimize2,
   X
 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
@@ -36,48 +30,119 @@ const API_URL = "http://127.0.0.1:8000";
 const DEFAULT_PATH =
   "/Users/sreevatsarajesh/Documents/GitHub/cybersecuritylabs";
 
+const FOLDER_COLORS = [
+  "#38bdf8",
+  "#a78bfa",
+  "#34d399",
+  "#fb923c",
+  "#f472b6",
+  "#facc15",
+  "#2dd4bf",
+  "#818cf8",
+  "#fb7185",
+  "#a3e635",
+  "#e879f9",
+  "#60a5fa",
+  "#4ade80",
+  "#f97316",
+  "#c084fc",
+  "#22d3ee"
+];
+
+function getFolderColor(directory) {
+  let hash = 0;
+
+  for (let i = 0; i < directory.length; i += 1) {
+    hash = (hash * 31 + directory.charCodeAt(i)) | 0;
+  }
+
+  return FOLDER_COLORS[Math.abs(hash) % FOLDER_COLORS.length];
+}
+
 function FileNode({ data, selected }) {
+  const accent = data.color || "#38bdf8";
+
   return (
-    <div className={`file-node ${selected ? "selected" : ""}`}>
-      <Handle type="target" position={Position.Left} />
-      <div className="file-node-icon">
-        <FileCode2 size={17} />
+    <div
+      className={`file-node ${selected ? "selected" : ""}`}
+      style={{
+        border: `2px solid ${accent}`,
+        borderLeft: `5px solid ${accent}`,
+        boxShadow: selected
+          ? `0 0 0 2px ${accent}55, 3px 3px 0 ${accent}55`
+          : `3px 3px 0 ${accent}35`,
+        background: "var(--bg-color)"
+      }}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{
+          background: accent,
+          border: `1px solid ${accent}`,
+          borderRadius: 0,
+          width: 7,
+          height: 7
+        }}
+      />
+
+      <div className="file-node-icon" style={{ color: accent }}>
+        <FileCode2 size={16} />
       </div>
+
       <div className="file-node-content">
         <div className="file-node-name">{data.label}</div>
         <div className="file-node-path">{data.directory || "Root"}</div>
       </div>
-      <Handle type="source" position={Position.Right} />
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{
+          background: accent,
+          border: `1px solid ${accent}`,
+          borderRadius: 0,
+          width: 7,
+          height: 7
+        }}
+      />
     </div>
   );
 }
 
 function FolderGroupNode({ data }) {
+  const accent = data.color || "#38bdf8";
+
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
         boxSizing: "border-box",
-        padding: "14px 16px",
-        border: "1px solid #293858",
-        borderRadius: "14px",
-        background: "rgba(17, 26, 44, 0.55)",
-        pointerEvents: "none"
+        padding: "12px 14px",
+        border: `2px dashed ${accent}`,
+        borderRadius: 5,
+        background: `${accent}0D`,
+        boxShadow: `4px 4px 0 ${accent}35`,
+        cursor: "grab",
+        overflow: "hidden"
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "8px",
-          color: "#aebfff",
-          fontSize: "12px",
-          fontWeight: 600,
-          minWidth: 0
+          gap: 8,
+          color: accent,
+          fontSize: 11,
+          fontWeight: "bold",
+          textTransform: "uppercase",
+          letterSpacing: "1px",
+          pointerEvents: "none"
         }}
       >
-        <FolderGit2 size={15} />
+        <Folder size={15} />
+
         <span
           style={{
             overflow: "hidden",
@@ -85,16 +150,20 @@ function FolderGroupNode({ data }) {
             whiteSpace: "nowrap"
           }}
         >
-          {data.directory}
+          [{data.directory}]
         </span>
+
         <span
           style={{
-            color: "#7483a4",
+            color: accent,
             marginLeft: "auto",
-            whiteSpace: "nowrap"
+            flexShrink: 0,
+            fontSize: 10,
+            border: `1px solid ${accent}88`,
+            padding: "2px 4px"
           }}
         >
-          {data.count} files
+          {data.count} FILES
         </span>
       </div>
     </div>
@@ -112,25 +181,24 @@ function makeGraph(result) {
     .sort((a, b) => a.path.localeCompare(b.path));
 
   const fileIds = new Set(files.map((file) => file.id));
+
   const graphEdges = (result.edges || []).filter(
     (edge) => fileIds.has(edge.source) && fileIds.has(edge.target)
   );
 
   const nodeWidth = 244;
   const nodeHeight = 69;
-  const paddingX = 24;
-  const paddingTop = 50;
-  const paddingBottom = 24;
-
   const layout = new dagre.graphlib.Graph();
+
   layout.setDefaultEdgeLabel(() => ({}));
+
   layout.setGraph({
     rankdir: "LR",
-    nodesep: 65,
-    ranksep: 115,
-    edgesep: 30,
-    marginx: 40,
-    marginy: 40,
+    nodesep: 80,
+    ranksep: 140,
+    edgesep: 40,
+    marginx: 50,
+    marginy: 50,
     ranker: "network-simplex"
   });
 
@@ -154,6 +222,7 @@ function makeGraph(result) {
 
   const fileNodes = files.map((file) => {
     const position = layout.node(file.id);
+
     const directory = file.path.includes("/")
       ? file.path.substring(0, file.path.lastIndexOf("/"))
       : "Root";
@@ -165,68 +234,71 @@ function makeGraph(result) {
         x: position.x - nodeWidth / 2,
         y: position.y - nodeHeight / 2
       },
-      zIndex: 1,
+      width: nodeWidth,
+      height: nodeHeight,
+      zIndex: 2,
+      draggable: true,
       data: {
         label: file.label,
         path: file.path,
         directory,
-        type: file.type
+        type: file.type,
+        color: getFolderColor(directory)
       }
     };
   });
 
-  const directoryGroups = new Map();
+  const groups = new Map();
 
   fileNodes.forEach((node) => {
     const directory = node.data.directory;
 
-    if (!directoryGroups.has(directory)) {
-      directoryGroups.set(directory, []);
+    if (!groups.has(directory)) {
+      groups.set(directory, []);
     }
 
-    directoryGroups.get(directory).push(node);
+    groups.get(directory).push(node);
   });
 
   const folderNodes = [];
 
-  directoryGroups.forEach((groupFiles, directory) => {
-    const minX = Math.min(
-      ...groupFiles.map((node) => node.position.x)
-    );
-    const minY = Math.min(
-      ...groupFiles.map((node) => node.position.y)
-    );
+  groups.forEach((groupFiles, directory) => {
+    const minX = Math.min(...groupFiles.map((node) => node.position.x));
+    const minY = Math.min(...groupFiles.map((node) => node.position.y));
+
     const maxX = Math.max(
       ...groupFiles.map((node) => node.position.x + nodeWidth)
     );
+
     const maxY = Math.max(
       ...groupFiles.map((node) => node.position.y + nodeHeight)
     );
 
-    const width = maxX - minX + paddingX * 2;
-    const height = maxY - minY + paddingTop + paddingBottom;
+    const width = maxX - minX + 56;
+    const height = maxY - minY + 80;
+    const color = getFolderColor(directory);
 
     folderNodes.push({
       id: `folder-${directory}`,
       type: "folderGroup",
       position: {
-        x: minX - paddingX,
-        y: minY - paddingTop
+        x: minX - 28,
+        y: minY - 54
       },
+      width,
+      height,
       style: {
         width,
         height
       },
-      width,
-      height,
       zIndex: -1,
-      draggable: false,
+      draggable: true,
       selectable: false,
       connectable: false,
-      focusable: false,
       data: {
         directory,
-        count: groupFiles.length
+        count: groupFiles.length,
+        color
       }
     });
   });
@@ -235,23 +307,31 @@ function makeGraph(result) {
     id: `edge-${index}-${edge.source}-${edge.target}`,
     source: edge.source,
     target: edge.target,
-    label: "imports",
+    label: "IMPORTS",
     type: "smoothstep",
-    animated: false,
+    animated: true,
+    zIndex: 1,
     markerEnd: {
-      type: MarkerType.ArrowClosed
+      type: MarkerType.ArrowClosed,
+      width: 14,
+      height: 14,
+      color: "#f59e0b"
     },
     style: {
-      stroke: "#7185ff",
-      strokeWidth: 1.6
+      stroke: "#f59e0b",
+      strokeWidth: 2
     },
     labelStyle: {
-      fill: "#aeb9d7",
-      fontSize: 10
+      fill: "var(--text-main)",
+      fontSize: 9,
+      fontFamily: "inherit",
+      fontWeight: "bold"
     },
     labelBgStyle: {
-      fill: "#111827",
-      fillOpacity: 0.95
+      fill: "var(--bg-color)",
+      fillOpacity: 0.95,
+      stroke: "#f59e0b",
+      strokeWidth: 1
     }
   }));
 
@@ -261,10 +341,10 @@ function makeGraph(result) {
   };
 }
 
-function StatCard({ icon, label, value, note, tone }) {
+function StatCard({ icon, label, value, note }) {
   return (
     <div className="stat-card">
-      <div className={`stat-icon ${tone}`}>{icon}</div>
+      <div className="stat-icon">{icon}</div>
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
       <div className="stat-note">{note}</div>
@@ -272,18 +352,200 @@ function StatCard({ icon, label, value, note, tone }) {
   );
 }
 
+function GraphLegend({ directories }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "8px 16px",
+        padding: "10px 14px",
+        borderBottom: "1px solid var(--border-heavy)",
+        background: "var(--bg-color)",
+        fontSize: 11
+      }}
+    >
+      <strong style={{ letterSpacing: 1 }}>LEGEND</strong>
+
+      {directories.map((directory) => {
+        const color = getFolderColor(directory);
+
+        return (
+          <div
+            key={directory}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              minWidth: 0
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 17,
+                height: 12,
+                flexShrink: 0,
+                border: `2px dashed ${color}`,
+                borderRadius: 2
+              }}
+            />
+            <span
+              title={directory}
+              style={{
+                color,
+                maxWidth: 180,
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis"
+              }}
+            >
+              {directory}
+            </span>
+          </div>
+        );
+      })}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span
+          style={{
+            display: "inline-block",
+            width: 20,
+            borderTop: "2px solid #f59e0b"
+          }}
+        />
+        <span>IMPORTS → dependency target</span>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <FileCode2 size={14} />
+        <span>File node — draggable</span>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Folder size={14} />
+        <span>Folder border — drag to move group</span>
+      </div>
+    </div>
+  );
+}
+
+function GraphToolbar({
+  fullscreen,
+  onFullscreen,
+  onFit,
+  onZoomIn,
+  onZoomOut,
+  onFocus,
+  hasSelection
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 8,
+        padding: "10px 12px",
+        borderBottom: "1px solid var(--border-heavy)",
+        background: "var(--bg-color)"
+      }}
+    >
+      <button className="action-btn" onClick={onFit} type="button">
+        FIT ALL
+      </button>
+
+      <button className="action-btn" onClick={onZoomIn} type="button">
+        ZOOM +
+      </button>
+
+      <button className="action-btn" onClick={onZoomOut} type="button">
+        ZOOM −
+      </button>
+
+      <button
+        className="action-btn"
+        onClick={onFocus}
+        disabled={!hasSelection}
+        type="button"
+      >
+        FOCUS SELECTED
+      </button>
+
+      <span
+        style={{
+          fontSize: 11,
+          color: "var(--text-muted)",
+          marginLeft: 4
+        }}
+      >
+        Drag background to pan · Scroll to zoom · Drag nodes to move
+      </span>
+
+      <button
+        className="action-btn"
+        onClick={onFullscreen}
+        type="button"
+        style={{ marginLeft: "auto" }}
+      >
+        {fullscreen ? (
+          <>
+            <Minimize2
+              size={13}
+              style={{ display: "inline", marginRight: 5 }}
+            />
+            EXIT FULLSCREEN
+          </>
+        ) : (
+          <>
+            <Maximize2
+              size={13}
+              style={{ display: "inline", marginRight: 5 }}
+            />
+            FULLSCREEN
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function AppContent() {
+  const { fitView, zoomIn, zoomOut, setCenter, getNodes } = useReactFlow();
+
+  const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
+  const [darkTheme, setDarkTheme] = useState(true);
+  const [scanMode, setScanMode] = useState("github");
   const [repoPath, setRepoPath] = useState(DEFAULT_PATH);
+  const [repoUrl, setRepoUrl] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedNode, setSelectedNode] = useState(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("graph");
+  const [graphNodes, setGraphNodes] = useState([]);
+
+  const previousFolderPositions = useRef(new Map());
+
+  useEffect(() => {
+    document.body.classList.toggle("dark-theme", darkTheme);
+
+    return () => {
+      document.body.classList.remove("dark-theme");
+    };
+  }, [darkTheme]);
 
   const runScan = useCallback(async () => {
-    if (!repoPath.trim()) {
-      setError("Enter a repository path first.");
+    const input = scanMode === "github" ? repoUrl.trim() : repoPath.trim();
+
+    if (!input) {
+      setError(
+        scanMode === "github"
+          ? "Enter a public GitHub repository URL."
+          : "Enter a local repository path."
+      );
       return;
     }
 
@@ -292,14 +554,16 @@ function AppContent() {
     setSelectedNode(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/scan`, {
+      const endpoint =
+        scanMode === "github" ? "/api/scan/github" : "/api/scan";
+
+      const payload =
+        scanMode === "github" ? { url: input } : { path: input };
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          path: repoPath.trim()
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
 
       const body = await response.json();
@@ -323,41 +587,56 @@ function AppContent() {
     } finally {
       setLoading(false);
     }
-  }, [repoPath]);
+  }, [scanMode, repoPath, repoUrl]);
 
-  const graph = useMemo(
+  const rawGraph = useMemo(
     () => (result ? makeGraph(result) : { nodes: [], edges: [] }),
     [result]
   );
 
+  useEffect(() => {
+    setGraphNodes(rawGraph.nodes);
+
+    previousFolderPositions.current = new Map(
+      rawGraph.nodes
+        .filter((node) => node.type === "folderGroup")
+        .map((node) => [node.id, node.position])
+    );
+  }, [rawGraph.nodes]);
+
   const fileNodes = useMemo(
-    () => graph.nodes.filter((node) => node.type === "fileNode"),
-    [graph.nodes]
+    () => graphNodes.filter((node) => node.type === "fileNode"),
+    [graphNodes]
+  );
+
+  const directories = useMemo(
+    () => [...new Set(fileNodes.map((node) => node.data.directory))].sort(),
+    [fileNodes]
   );
 
   const visibleNodes = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    const matchingFiles = !query
-      ? fileNodes
-      : fileNodes.filter(
+    const matchingFiles = query
+      ? fileNodes.filter(
           (node) =>
             node.data.label.toLowerCase().includes(query) ||
             node.data.path.toLowerCase().includes(query)
-        );
+        )
+      : fileNodes;
 
-    const visibleDirectories = new Set(
+    const matchingDirectories = new Set(
       matchingFiles.map((node) => node.data.directory)
     );
 
-    const folders = graph.nodes.filter(
+    const folders = graphNodes.filter(
       (node) =>
         node.type === "folderGroup" &&
-        visibleDirectories.has(node.data.directory)
+        matchingDirectories.has(node.data.directory)
     );
 
     return [...folders, ...matchingFiles];
-  }, [fileNodes, graph.nodes, search]);
+  }, [fileNodes, graphNodes, search]);
 
   const visibleNodeIds = useMemo(
     () => new Set(visibleNodes.map((node) => node.id)),
@@ -366,13 +645,71 @@ function AppContent() {
 
   const visibleEdges = useMemo(
     () =>
-      graph.edges.filter(
+      rawGraph.edges.filter(
         (edge) =>
           visibleNodeIds.has(edge.source) &&
           visibleNodeIds.has(edge.target)
       ),
-    [graph.edges, visibleNodeIds]
+    [rawGraph.edges, visibleNodeIds]
   );
+
+  const onNodeDragStart = useCallback((_, node) => {
+    if (node.type === "folderGroup") {
+      previousFolderPositions.current.set(node.id, { ...node.position });
+    }
+  }, []);
+
+  const onNodeDrag = useCallback((_, node) => {
+    if (node.type !== "folderGroup") return;
+
+    const previous = previousFolderPositions.current.get(node.id);
+
+    if (!previous) {
+      previousFolderPositions.current.set(node.id, { ...node.position });
+      return;
+    }
+
+    const deltaX = node.position.x - previous.x;
+    const deltaY = node.position.y - previous.y;
+
+    if (deltaX === 0 && deltaY === 0) return;
+
+    previousFolderPositions.current.set(node.id, { ...node.position });
+
+    const directory = node.data.directory;
+
+    setGraphNodes((current) =>
+      current.map((item) => {
+        if (
+          item.type === "fileNode" &&
+          item.data.directory === directory
+        ) {
+          return {
+            ...item,
+            position: {
+              x: item.position.x + deltaX,
+              y: item.position.y + deltaY
+            }
+          };
+        }
+
+        if (item.id === node.id) {
+          return {
+            ...item,
+            position: { ...node.position }
+          };
+        }
+
+        return item;
+      })
+    );
+  }, []);
+
+  const onNodeDragStop = useCallback((_, node) => {
+    if (node.type === "folderGroup") {
+      previousFolderPositions.current.set(node.id, { ...node.position });
+    }
+  }, []);
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type === "fileNode") {
@@ -380,8 +717,32 @@ function AppContent() {
     }
   }, []);
 
+  const focusGraph = useCallback(() => {
+    fitView({
+      padding: 0.15,
+      duration: 350,
+      minZoom: 0.1,
+      maxZoom: 1.2
+    });
+  }, [fitView]);
+
+  const focusSelectedNode = useCallback(() => {
+    if (!selectedNode) return;
+
+    const node = getNodes().find((item) => item.id === selectedNode.id);
+    if (!node) return;
+
+    setCenter(
+      node.position.x + (node.measured?.width || node.width || 244) / 2,
+      node.position.y + (node.measured?.height || node.height || 69) / 2,
+      {
+        zoom: 1.1,
+        duration: 350
+      }
+    );
+  }, [selectedNode, getNodes, setCenter]);
+
   const statistics = result?.statistics || {};
-  const fileCount = fileNodes.length;
 
   const functionCount = (result?.nodes || []).filter(
     (node) => node.type === "function"
@@ -391,352 +752,497 @@ function AppContent() {
     (node) => node.type === "class"
   ).length;
 
-  const selectedOutgoing = selectedNode
-    ? graph.edges.filter((edge) => edge.source === selectedNode.id)
+  const outgoing = selectedNode
+    ? rawGraph.edges.filter((edge) => edge.source === selectedNode.id)
     : [];
 
-  const selectedIncoming = selectedNode
-    ? graph.edges.filter((edge) => edge.target === selectedNode.id)
+  const incoming = selectedNode
+    ? rawGraph.edges.filter((edge) => edge.target === selectedNode.id)
     : [];
+
+  useEffect(() => {
+    if (!isGraphFullscreen) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      fitView({
+        padding: 0.12,
+        duration: 250,
+        maxZoom: 1.2
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isGraphFullscreen, fitView]);
+
+  useEffect(() => {
+    if (!isGraphFullscreen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsGraphFullscreen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isGraphFullscreen]);
+
+  const graphHeight = isGraphFullscreen
+    ? "calc(100dvh - 150px)"
+    : 580;
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">
-            <Network size={23} />
+    <div
+      className={`container ${
+        isGraphFullscreen ? "graph-fullscreen-active" : ""
+      }`}
+    >
+      {!isGraphFullscreen && (
+        <header>
+          <button
+            className="action-btn theme-toggle-btn"
+            onClick={() => setDarkTheme((value) => !value)}
+            type="button"
+          >
+            {darkTheme ? "[ LIGHT THEME ]" : "[ DARK THEME ]"}
+          </button>
+
+          <h1>CODEBASE X-RAY</h1>
+
+          <div className="description">
+            RETRO MONOCHROME STATIC CODE INTELLIGENCE PLATFORM
           </div>
-          <div>
-            <div className="brand-name">CODEBASE X-RAY</div>
-            <div className="brand-caption">Code intelligence platform</div>
-          </div>
-        </div>
 
-        <div className="sidebar-label">WORKSPACE</div>
-
-        <button
-          className={`side-link ${activeTab === "overview" ? "active" : ""}`}
-          onClick={() => setActiveTab("overview")}
-        >
-          <Layers3 size={17} />
-          <span>Overview</span>
-          <ChevronRight size={15} className="side-chevron" />
-        </button>
-
-        <button
-          className={`side-link ${activeTab === "graph" ? "active" : ""}`}
-          onClick={() => setActiveTab("graph")}
-        >
-          <GitBranch size={17} />
-          <span>Dependency graph</span>
-        </button>
-
-        <button
-          className={`side-link ${activeTab === "files" ? "active" : ""}`}
-          onClick={() => setActiveTab("files")}
-        >
-          <FolderGit2 size={17} />
-          <span>Repository files</span>
-        </button>
-
-        <div className="sidebar-label sidebar-label-spaced">
-          ANALYSIS
-        </div>
-
-        <div className="sidebar-info">
-          <ShieldCheck size={17} />
-          <div>
-            <div className="sidebar-info-title">Static analysis</div>
-            <div className="sidebar-info-text">
-              Python AST-based scanning
-            </div>
-          </div>
-        </div>
-
-        <div className="sidebar-bottom">
-          <div className="connection-indicator">
-            <span className="status-dot" />
-            <span>Local API</span>
-            <span className="connection-state">DEV</span>
-          </div>
-          <div className="sidebar-version">
-            CODEBASE X-RAY · v0.1.0
-          </div>
-        </div>
-      </aside>
-
-      <main className="main-content">
-        <header className="topbar">
-          <div className="breadcrumbs">
-            <span>Workspace</span>
-            <ChevronRight size={14} />
-            <strong>Overview</strong>
-          </div>
-          <div className="topbar-right">
-            <span className="environment-tag">
-              <span className="status-dot" />
-              Local environment
+          <div className="api-status-wrapper">
+            STATUS:{" "}
+            <span className="status-text live">
+              ONLINE (127.0.0.1:8000)
             </span>
-            <div className="avatar">X</div>
           </div>
         </header>
+      )}
 
-        <div className="page-content">
-          <section className="page-heading">
-            <div>
-              <div className="eyebrow">
-                <Sparkles size={14} />
-                CODE INTELLIGENCE
-              </div>
-              <h1>Repository overview</h1>
-              <p>
-                Understand your codebase, map dependencies, and explore
-                your software architecture.
-              </p>
+      <main>
+        {!isGraphFullscreen && (
+          <>
+            <div className="controls-row" style={{ marginBottom: 30 }}>
+              <button
+                className={`action-btn ${
+                  activeTab === "graph" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("graph")}
+                type="button"
+              >
+                [ ARCHITECTURE GRAPH ]
+              </button>
+
+              <button
+                className={`action-btn ${
+                  activeTab === "files" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("files")}
+                type="button"
+              >
+                [ REPOSITORY FILES ]
+              </button>
+
+              <button
+                className="action-btn"
+                onClick={runScan}
+                disabled={loading}
+                style={{ marginLeft: "auto" }}
+                type="button"
+              >
+                <RefreshCw
+                  size={14}
+                  className={loading ? "spin" : ""}
+                  style={{ display: "inline", marginRight: 6 }}
+                />
+                {loading ? "SCANNING..." : "RE-SCAN"}
+              </button>
             </div>
 
-            <button
-              className="secondary-button"
-              onClick={runScan}
-              disabled={loading}
-            >
-              <RefreshCw
-                size={15}
-                className={loading ? "spin" : ""}
-              />
-              Rescan repository
-            </button>
-          </section>
+            <div className="section-title">REPOSITORY TARGET INPUT</div>
 
-          <section className="scan-panel">
-            <div className="scan-panel-heading">
-              <div className="scan-icon">
-                <FolderGit2 size={19} />
-              </div>
-              <div>
-                <h2>Scan a repository</h2>
-                <p>Enter an absolute path accessible to the backend.</p>
-              </div>
-            </div>
-
-            <form
-              className="scan-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                runScan();
+            <div
+              style={{
+                border: "2px solid var(--border-heavy)",
+                padding: 20,
+                marginBottom: 32,
+                background: "var(--bg-color)",
+                boxShadow: "4px 4px 0px var(--border-heavy)"
               }}
             >
-              <div className="path-input-wrap">
-                <Code2 size={17} />
+              <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                <button
+                  className="action-btn"
+                  onClick={() => setScanMode("github")}
+                  style={{ opacity: scanMode === "github" ? 1 : 0.6 }}
+                  type="button"
+                >
+                  GITHUB URL
+                </button>
+
+                <button
+                  className="action-btn"
+                  onClick={() => setScanMode("local")}
+                  style={{ opacity: scanMode === "local" ? 1 : 0.6 }}
+                  type="button"
+                >
+                  LOCAL PATH
+                </button>
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  runScan();
+                }}
+                style={{ display: "flex", gap: 12 }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    border: "2px solid var(--border-heavy)",
+                    padding: "8px 12px",
+                    background: "var(--bg-color)"
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={scanMode === "github" ? repoUrl : repoPath}
+                    onChange={(event) =>
+                      scanMode === "github"
+                        ? setRepoUrl(event.target.value)
+                        : setRepoPath(event.target.value)
+                    }
+                    placeholder={
+                      scanMode === "github"
+                        ? "https://github.com/owner/repository"
+                        : "/path/to/your/repository"
+                    }
+                    style={{
+                      width: "100%",
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-main)",
+                      outline: "none",
+                      fontFamily: "inherit"
+                    }}
+                  />
+                </div>
+
+                <button
+                  className="action-btn"
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? "ANALYZING..." : "SCAN"}
+                </button>
+              </form>
+
+              {error && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    color: "var(--bad-color)",
+                    fontWeight: "bold"
+                  }}
+                >
+                  [ERROR]: {error}
+                </div>
+              )}
+
+              {result && !error && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    color: "var(--live-color)",
+                    fontWeight: "bold"
+                  }}
+                >
+                  [SUCCESS]: REPOSITORY PARSED SUCCESSFULLY (
+                  {statistics.errors_count || 0} ERRORS)
+                </div>
+              )}
+            </div>
+
+            <div className="section-title">SYSTEM METRICS</div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 16,
+                marginBottom: 32
+              }}
+            >
+              <StatCard
+                label="PY FILES"
+                value={statistics.files_scanned ?? fileNodes.length}
+                note="Discovered"
+                icon={<FolderGit2 size={16} />}
+              />
+
+              <StatCard
+                label="EDGES"
+                value={statistics.edges_found ?? rawGraph.edges.length}
+                note="Imports"
+                icon={<Network size={16} />}
+              />
+
+              <StatCard
+                label="SYMBOLS"
+                value={statistics.nodes_found ?? "—"}
+                note={`${functionCount}F / ${classCount}C`}
+                icon={<Layers3 size={16} />}
+              />
+
+              <StatCard
+                label="ERRORS"
+                value={statistics.errors_count ?? "—"}
+                note="Failed Parse"
+                icon={<AlertCircle size={16} />}
+              />
+            </div>
+
+            <div className="section-title">ARCHITECTURE EXPLORER</div>
+          </>
+        )}
+
+        <section
+          style={{
+            border: isGraphFullscreen ? "none" : "2px solid var(--border-heavy)",
+            background: "var(--bg-color)",
+            boxShadow: isGraphFullscreen
+              ? "none"
+              : "5px 5px 0px var(--border-heavy)",
+            position: isGraphFullscreen ? "fixed" : "relative",
+            inset: isGraphFullscreen ? 0 : "auto",
+            zIndex: isGraphFullscreen ? 9999 : 1,
+            display: "flex",
+            flexDirection: "column",
+            width: isGraphFullscreen ? "100vw" : "auto",
+            height: isGraphFullscreen ? "100dvh" : "auto",
+            minHeight: 0,
+            overflow: "hidden"
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+              padding: "12px 16px",
+              borderBottom: "2px solid var(--border-heavy)",
+              background: "var(--bg-color)"
+            }}
+          >
+            <div style={{ fontWeight: "bold", textTransform: "uppercase" }}>
+              {result
+                ? `${fileNodes.length} FILES LOADED`
+                : "AWAITING SCAN INPUT"}
+            </div>
+
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div
+                style={{
+                  border: "1px solid var(--border-heavy)",
+                  padding: "4px 8px",
+                  background: "var(--bg-color)"
+                }}
+              >
                 <input
-                  value={repoPath}
-                  onChange={(event) => setRepoPath(event.target.value)}
-                  placeholder="/path/to/your/repository"
-                  aria-label="Repository path"
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="FILTER FILE..."
+                  style={{
+                    width: 160,
+                    maxWidth: "35vw",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-main)",
+                    outline: "none",
+                    fontSize: "0.85rem",
+                    fontFamily: "inherit"
+                  }}
                 />
               </div>
 
+              {isGraphFullscreen && (
+                <button
+                  className="action-btn"
+                  onClick={() => setDarkTheme((value) => !value)}
+                  type="button"
+                >
+                  {darkTheme ? "LIGHT" : "DARK"}
+                </button>
+              )}
+
               <button
-                className="primary-button"
-                type="submit"
-                disabled={loading}
+                className="action-btn"
+                onClick={() => {
+                  if (!isGraphFullscreen && activeTab !== "graph") {
+                    setActiveTab("graph");
+                  }
+
+                  setIsGraphFullscreen((value) => !value);
+                }}
+                type="button"
               >
-                {loading ? (
-                  <LoaderCircle size={17} className="spin" />
+                {isGraphFullscreen ? (
+                  <>
+                    <X
+                      size={13}
+                      style={{ display: "inline", marginRight: 5 }}
+                    />
+                    EXIT
+                  </>
                 ) : (
-                  <Activity size={17} />
+                  <>
+                    <Maximize2
+                      size={13}
+                      style={{ display: "inline", marginRight: 5 }}
+                    />
+                    FULLSCREEN
+                  </>
                 )}
-                {loading ? "Scanning..." : "Analyze codebase"}
               </button>
-            </form>
-
-            {error && (
-              <div className="error-banner">
-                <AlertCircle size={17} />
-                <span>{error}</span>
-                <button
-                  onClick={() => setError("")}
-                  aria-label="Dismiss error"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            )}
-
-            {result && !error && (
-              <div className="success-message">
-                <CheckCircle2 size={15} />
-                Scan completed successfully
-                <span>{statistics.errors_count || 0} parsing errors</span>
-              </div>
-            )}
-          </section>
-
-          <section className="stats-grid">
-            <StatCard
-              icon={<FolderGit2 size={18} />}
-              label="Python files"
-              value={statistics.files_scanned ?? "—"}
-              note="Successfully scanned"
-              tone="blue"
-            />
-            <StatCard
-              icon={<Network size={18} />}
-              label="Dependency edges"
-              value={statistics.edges_found ?? "—"}
-              note="Local import connections"
-              tone="purple"
-            />
-            <StatCard
-              icon={<Box size={18} />}
-              label="Code symbols"
-              value={statistics.nodes_found ?? "—"}
-              note={`${functionCount} functions · ${classCount} classes`}
-              tone="green"
-            />
-            <StatCard
-              icon={<AlertCircle size={18} />}
-              label="Parse errors"
-              value={statistics.errors_count ?? "—"}
-              note="Files with parsing errors"
-              tone="orange"
-            />
-          </section>
-
-          <section className="workspace-panel">
-            <div className="workspace-toolbar">
-              <div className="workspace-title">
-                <div className="workspace-title-icon">
-                  <GitBranch size={18} />
-                </div>
-                <div>
-                  <h2>Architecture explorer</h2>
-                  <p>
-                    {result
-                      ? `${fileCount} files · ${graph.edges.length} connections`
-                      : "Your dependency map will appear here"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="workspace-actions">
-                <div className="search-box">
-                  <Search size={15} />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Find a file..."
-                    aria-label="Search files"
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch("")}
-                      aria-label="Clear search"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="tab-switch">
-                  <button
-                    className={activeTab !== "files" ? "selected" : ""}
-                    onClick={() => setActiveTab("graph")}
-                  >
-                    <Network size={14} />
-                    Graph
-                  </button>
-                  <button
-                    className={activeTab === "files" ? "selected" : ""}
-                    onClick={() => setActiveTab("files")}
-                  >
-                    <FileCode2 size={14} />
-                    Files
-                  </button>
-                </div>
-              </div>
             </div>
+          </div>
 
-            {!result ? (
-              <div className="empty-state">
-                <div className="empty-graphic">
-                  <div className="empty-graphic-ring ring-one" />
-                  <div className="empty-graphic-ring ring-two" />
-                  <div className="empty-graphic-center">
-                    <Network size={34} />
+          {!result ? (
+            <div
+              style={{
+                padding: 60,
+                textAlign: "center",
+                flex: 1,
+                overflow: "auto"
+              }}
+            >
+              <div style={{ fontWeight: "bold", marginBottom: 12 }}>
+                [ NO REPOSITORY DATA LOADED ]
+              </div>
+
+              <p
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: "0.9rem",
+                  marginBottom: 20
+                }}
+              >
+                Trigger a repository scan above to render the architecture
+                graph.
+              </p>
+
+              <button
+                className="action-btn"
+                onClick={runScan}
+                disabled={loading}
+                type="button"
+              >
+                {loading ? "SCANNING..." : "RUN SCAN PIPELINE"}
+              </button>
+            </div>
+          ) : activeTab === "files" && !isGraphFullscreen ? (
+            <div
+              style={{
+                padding: 16,
+                minHeight: 400,
+                textAlign: "left",
+                overflow: "auto"
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 2fr 1fr",
+                  borderBottom: "1px solid var(--border-heavy)",
+                  paddingBottom: 8,
+                  fontWeight: "bold",
+                  fontSize: "0.9rem"
+                }}
+              >
+                <span>FILE NAME</span>
+                <span>DIRECTORY</span>
+                <span>CONNECTIONS</span>
+              </div>
+
+              {visibleNodes
+                .filter((node) => node.type === "fileNode")
+                .map((node) => (
+                  <div
+                    key={node.id}
+                    onClick={() => setSelectedNode(node)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "2fr 2fr 1fr",
+                      gap: 8,
+                      padding: "8px 0",
+                      borderBottom: `1px dotted ${node.data.color}`,
+                      borderLeft: `3px solid ${node.data.color}`,
+                      paddingLeft: 8,
+                      cursor: "pointer",
+                      background:
+                        selectedNode?.id === node.id
+                          ? "var(--text-main)"
+                          : "transparent",
+                      color:
+                        selectedNode?.id === node.id
+                          ? "var(--bg-color)"
+                          : "inherit"
+                    }}
+                  >
+                    <span>{node.data.label}</span>
+                    <span>{node.data.directory}</span>
+                    <span>
+                      {
+                        rawGraph.edges.filter(
+                          (edge) =>
+                            edge.source === node.id ||
+                            edge.target === node.id
+                        ).length
+                      }
+                    </span>
                   </div>
-                  <div className="empty-node empty-node-one" />
-                  <div className="empty-node empty-node-two" />
-                  <div className="empty-node empty-node-three" />
-                </div>
+                ))}
+            </div>
+          ) : (
+            <>
+              <GraphToolbar
+                fullscreen={isGraphFullscreen}
+                onFullscreen={() =>
+                  setIsGraphFullscreen((value) => !value)
+                }
+                onFit={focusGraph}
+                onZoomIn={() => zoomIn({ duration: 200 })}
+                onZoomOut={() => zoomOut({ duration: 200 })}
+                onFocus={focusSelectedNode}
+                hasSelection={Boolean(selectedNode)}
+              />
 
-                <h3>Your codebase, visualized.</h3>
-                <p>
-                  Run your first scan to discover files and map their
-                  relationships.
-                </p>
+              <GraphLegend directories={directories} />
 
-                <button
-                  className="primary-button"
-                  onClick={runScan}
-                  disabled={loading}
+              <div
+                style={{
+                  display: "flex",
+                  flex: 1,
+                  minHeight: 0,
+                  height: graphHeight,
+                  overflow: "hidden"
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 0,
+                    position: "relative",
+                    background: "var(--bg-color)"
+                  }}
                 >
-                  {loading ? (
-                    <LoaderCircle size={16} className="spin" />
-                  ) : (
-                    <Activity size={16} />
-                  )}
-                  {loading ? "Analyzing..." : "Analyze repository"}
-                </button>
-              </div>
-            ) : activeTab === "files" ? (
-              <div className="file-list">
-                <div className="file-list-heading">
-                  <span>File name</span>
-                  <span>Directory</span>
-                  <span>Connections</span>
-                </div>
-
-                {visibleNodes
-                  .filter((node) => node.type === "fileNode")
-                  .map((node) => (
-                    <button
-                      className={`file-row ${
-                        selectedNode?.id === node.id ? "active" : ""
-                      }`}
-                      key={node.id}
-                      onClick={() => setSelectedNode(node)}
-                    >
-                      <span className="file-name-cell">
-                        <FileCode2 size={16} />
-                        {node.data.label}
-                      </span>
-                      <span className="file-directory-cell">
-                        {node.data.directory}
-                      </span>
-                      <span className="file-edge-count">
-                        {
-                          graph.edges.filter(
-                            (edge) =>
-                              edge.source === node.id ||
-                              edge.target === node.id
-                          ).length
-                        }
-                      </span>
-                    </button>
-                  ))}
-
-                {!visibleNodes.some(
-                  (node) => node.type === "fileNode"
-                ) && (
-                  <div className="no-results">
-                    No files match your search.
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="graph-layout">
-                <div className="graph-canvas">
                   {visibleNodes.some(
                     (node) => node.type === "fileNode"
                   ) ? (
@@ -745,125 +1251,218 @@ function AppContent() {
                       edges={visibleEdges}
                       nodeTypes={nodeTypes}
                       onNodeClick={onNodeClick}
+                      onNodeDragStart={onNodeDragStart}
+                      onNodeDrag={onNodeDrag}
+                      onNodeDragStop={onNodeDragStop}
                       fitView
-                      fitViewOptions={{ padding: 0.2 }}
-                      minZoom={0.15}
-                      maxZoom={2}
+                      fitViewOptions={{
+                        padding: 0.15,
+                        maxZoom: 1.2
+                      }}
+                      minZoom={0.08}
+                      maxZoom={2.5}
+                      panOnDrag={true}
+                      panOnScroll={false}
+                      zoomOnScroll={true}
+                      zoomOnPinch={true}
+                      zoomOnDoubleClick={false}
+                      nodesDraggable={true}
+                      elementsSelectable={true}
+                      onlyRenderVisibleElements={true}
                       proOptions={{ hideAttribution: true }}
+                      style={{
+                        width: "100%",
+                        height: "100%"
+                      }}
                     >
-                      <Background color="#273149" gap={22} size={1} />
-                      <Controls />
-                      <MiniMap
-                        nodeColor={(node) =>
-                          node.type === "folderGroup"
-                            ? "#293858"
-                            : "#6477ff"
-                        }
-                        maskColor="rgba(8, 12, 23, 0.75)"
+                      <Background
+                        color="var(--border-light)"
+                        gap={24}
+                        size={1}
                       />
+
+                      <Controls />
                     </ReactFlow>
                   ) : (
-                    <div className="no-results">
-                      <Search size={22} />
-                      <span>No files match your search.</span>
+                    <div
+                      style={{
+                        display: "grid",
+                        placeItems: "center",
+                        height: "100%",
+                        color: "var(--text-muted)"
+                      }}
+                    >
+                      NO FILES MATCH SEARCH CRITERIA.
                     </div>
                   )}
-
-                  <div className="graph-legend">
-                    <span className="legend-dot" />
-                    Python file
-                    <span className="legend-line" />
-                    Imports
-                  </div>
                 </div>
 
                 {selectedNode && (
-                  <aside className="details-panel">
-                    <div className="details-heading">
-                      <div>
-                        <div className="details-eyebrow">
-                          FILE INSPECTOR
-                        </div>
-                        <h3>File details</h3>
-                      </div>
+                  <aside
+                    style={{
+                      width: isGraphFullscreen ? 320 : 300,
+                      maxWidth: "40vw",
+                      flexShrink: 0,
+                      borderLeft: "2px solid var(--border-heavy)",
+                      padding: 16,
+                      background: "var(--bg-color)",
+                      textAlign: "left",
+                      overflowY: "auto"
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                        borderBottom: "1px solid var(--border-heavy)",
+                        paddingBottom: 8,
+                        marginBottom: 12
+                      }}
+                    >
+                      <strong>[ FILE INSPECTOR ]</strong>
+
                       <button
-                        className="icon-button"
+                        className="action-btn"
                         onClick={() => setSelectedNode(null)}
-                        aria-label="Close details"
+                        style={{
+                          padding: "2px 6px",
+                          fontSize: "0.75rem"
+                        }}
+                        type="button"
                       >
-                        <X size={17} />
+                        X
                       </button>
                     </div>
 
-                    <div className="details-file-icon">
-                      <FileCode2 size={22} />
-                    </div>
-                    <h4>{selectedNode.data.label}</h4>
-                    <div className="detail-type">Python source file</div>
-
-                    <div className="detail-section">
-                      <div className="detail-label">RELATIVE PATH</div>
-                      <div className="detail-path">
-                        {selectedNode.data.path}
-                      </div>
-                    </div>
-
-                    <div className="detail-section">
-                      <div className="detail-label">DEPENDENCIES</div>
-                      <div className="detail-count">
-                        {selectedOutgoing.length} outgoing imports
-                      </div>
-                      <div className="detail-count">
-                        {selectedIncoming.length} incoming imports
-                      </div>
+                    <div
+                      style={{
+                        borderLeft: `4px solid ${selectedNode.data.color}`,
+                        paddingLeft: 8,
+                        fontWeight: "bold",
+                        fontSize: "1rem",
+                        marginBottom: 8
+                      }}
+                    >
+                      {selectedNode.data.label}
                     </div>
 
-                    <div className="detail-section">
-                      <div className="detail-label">DIRECT IMPORTS</div>
-                      {selectedOutgoing.length ? (
-                        selectedOutgoing.map((edge) => (
-                          <div className="dependency-item" key={edge.id}>
-                            <FileCode2 size={14} />
-                            <span>{edge.target.split("/").pop()}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="muted-text">
-                          No resolved imports.
+                    <div
+                      style={{
+                        color: "var(--text-muted)",
+                        fontSize: "0.85rem",
+                        overflowWrap: "anywhere",
+                        marginBottom: 12
+                      }}
+                    >
+                      PATH: {selectedNode.data.path}
+                    </div>
+
+                    <div
+                      style={{
+                        color: selectedNode.data.color,
+                        fontSize: 11,
+                        marginBottom: 14
+                      }}
+                    >
+                      FOLDER: {selectedNode.data.directory}
+                    </div>
+
+                    <div
+                      style={{
+                        borderTop: "1px dotted var(--border-light)",
+                        paddingTop: 10,
+                        marginTop: 10
+                      }}
+                    >
+                      <strong>OUTGOING IMPORTS ({outgoing.length}):</strong>
+
+                      {outgoing.length === 0 && (
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            marginTop: 6
+                          }}
+                        >
+                          No outgoing imports found.
                         </div>
                       )}
+
+                      {outgoing.map((edge) => (
+                        <div
+                          key={edge.id}
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            marginTop: 6,
+                            overflowWrap: "anywhere"
+                          }}
+                        >
+                          → {edge.target.split("/").pop()}
+                        </div>
+                      ))}
                     </div>
 
-                    <div className="detail-section">
-                      <div className="detail-label">IMPORTED BY</div>
-                      {selectedIncoming.length ? (
-                        selectedIncoming.map((edge) => (
-                          <div className="dependency-item" key={edge.id}>
-                            <FileCode2 size={14} />
-                            <span>{edge.source.split("/").pop()}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="muted-text">
-                          No files import this file.
+                    <div
+                      style={{
+                        borderTop: "1px dotted var(--border-light)",
+                        paddingTop: 10,
+                        marginTop: 14
+                      }}
+                    >
+                      <strong>INCOMING IMPORTS ({incoming.length}):</strong>
+
+                      {incoming.length === 0 && (
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            marginTop: 6
+                          }}
+                        >
+                          No incoming imports found.
                         </div>
                       )}
+
+                      {incoming.map((edge) => (
+                        <div
+                          key={edge.id}
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            marginTop: 6,
+                            overflowWrap: "anywhere"
+                          }}
+                        >
+                          ← {edge.source.split("/").pop()}
+                        </div>
+                      ))}
                     </div>
+
+                    <button
+                      className="action-btn"
+                      onClick={focusSelectedNode}
+                      style={{ marginTop: 18, width: "100%" }}
+                      type="button"
+                    >
+                      FOCUS THIS FILE
+                    </button>
                   </aside>
                 )}
               </div>
-            )}
-          </section>
-
-          <footer className="page-footer">
-            <span>
-              <span className="status-dot" />
-              Codebase X-Ray is running locally
-            </span>
-            <span>Built for developers · v0.1.0</span>
-          </footer>
-        </div>
+            </>
+          )}
+        </section>
       </main>
+
+      {!isGraphFullscreen && (
+        <footer>
+          <span>CODEBASE X-RAY TERMINAL</span>
+          <span>BUILD 2026.10</span>
+        </footer>
+      )}
     </div>
   );
 }
