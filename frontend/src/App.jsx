@@ -341,6 +341,103 @@ function makeGraph(result) {
   };
 }
 
+function makeFunctionGraph(result) {
+  const functions = (result.nodes || [])
+    .filter((node) => node.type === "function")
+    .sort((a, b) => a.path.localeCompare(b.path) || a.label.localeCompare(b.label));
+
+  const functionIds = new Set(functions.map((node) => node.id));
+  const callEdges = (result.edges || []).filter(
+    (edge) => edge.type === "calls" && functionIds.has(edge.source) && functionIds.has(edge.target)
+  );
+
+  const nodeWidth = 244;
+  const nodeHeight = 69;
+  const layout = new dagre.graphlib.Graph();
+  layout.setDefaultEdgeLabel(() => ({}));
+  layout.setGraph({
+    rankdir: "LR",
+    nodesep: 70,
+    ranksep: 120,
+    edgesep: 35,
+    marginx: 50,
+    marginy: 50,
+    ranker: "network-simplex"
+  });
+
+  functions.forEach((node) => {
+    layout.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  callEdges.forEach((edge) => {
+    layout.setEdge(edge.source, edge.target, { weight: 2, minlen: 1 });
+  });
+
+  if (functions.length) dagre.layout(layout);
+
+  const nodes = functions.map((item) => {
+    const position = layout.node(item.id);
+    const directory = item.path.includes("/")
+      ? item.path.substring(0, item.path.lastIndexOf("/"))
+      : "Root";
+
+    return {
+      id: item.id,
+      type: "fileNode",
+      position: {
+        x: position.x - nodeWidth / 2,
+        y: position.y - nodeHeight / 2
+      },
+      width: nodeWidth,
+      height: nodeHeight,
+      zIndex: 2,
+      draggable: true,
+      data: {
+        label: item.label,
+        path: item.path,
+        directory,
+        line: item.line,
+        type: "function",
+        color: "#34d399"
+      }
+    };
+  });
+
+  const edges = callEdges.map((edge, index) => ({
+    id: `call-edge-${index}-${edge.source}-${edge.target}`,
+    source: edge.source,
+    target: edge.target,
+    label: "CALLS",
+    type: "smoothstep",
+    animated: true,
+    zIndex: 1,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 14,
+      height: 14,
+      color: "#34d399"
+    },
+    style: {
+      stroke: "#34d399",
+      strokeWidth: 2
+    },
+    labelStyle: {
+      fill: "var(--text-main)",
+      fontSize: 9,
+      fontFamily: "inherit",
+      fontWeight: "bold"
+    },
+    labelBgStyle: {
+      fill: "var(--bg-color)",
+      fillOpacity: 0.95,
+      stroke: "#34d399",
+      strokeWidth: 1
+    }
+  }));
+
+  return { nodes, edges };
+}
+
 function StatCard({ icon, label, value, note }) {
   return (
     <div className="stat-card">
@@ -526,6 +623,7 @@ function AppContent() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("graph");
   const [graphNodes, setGraphNodes] = useState([]);
+  const [graphMode, setGraphMode] = useState("files");
 
   const previousFolderPositions = useRef(new Map());
 
@@ -590,8 +688,8 @@ function AppContent() {
   }, [scanMode, repoPath, repoUrl]);
 
   const rawGraph = useMemo(
-    () => (result ? makeGraph(result) : { nodes: [], edges: [] }),
-    [result]
+    () => (result ? (graphMode === "functions" ? makeFunctionGraph(result) : makeGraph(result)) : { nodes: [], edges: [] }),
+    [result, graphMode]
   );
 
   useEffect(() => {
@@ -635,8 +733,10 @@ function AppContent() {
         matchingDirectories.has(node.data.directory)
     );
 
-    return [...folders, ...matchingFiles];
-  }, [fileNodes, graphNodes, search]);
+    return graphMode === "functions"
+      ? matchingFiles
+      : [...folders, ...matchingFiles];
+  }, [fileNodes, graphNodes, search, graphMode]);
 
   const visibleNodeIds = useMemo(
     () => new Set(visibleNodes.map((node) => node.id)),
@@ -986,7 +1086,7 @@ function AppContent() {
               <StatCard
                 label="EDGES"
                 value={statistics.edges_found ?? rawGraph.edges.length}
-                note="Imports"
+                note={graphMode === "functions" ? "Function calls" : "Imports"}
                 icon={<Network size={16} />}
               />
 
@@ -1041,7 +1141,7 @@ function AppContent() {
           >
             <div style={{ fontWeight: "bold", textTransform: "uppercase" }}>
               {result
-                ? `${fileNodes.length} FILES LOADED`
+                ? `${fileNodes.length} ${graphMode === "functions" ? "FUNCTIONS" : "FILES"} LOADED`
                 : "AWAITING SCAN INPUT"}
             </div>
 
@@ -1223,7 +1323,20 @@ function AppContent() {
                 hasSelection={Boolean(selectedNode)}
               />
 
-              <GraphLegend directories={directories} />
+              <div style={{ display: "flex", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border-heavy)", background: "var(--bg-color)", flexWrap: "wrap" }}>
+                <button className={`action-btn ${graphMode === "files" ? "active" : ""}`} onClick={() => { setGraphMode("files"); setSelectedNode(null); }} type="button">
+                  FILE IMPORTS ({(result?.edges || []).filter((edge) => edge.type === "imports").length})
+                </button>
+                <button className={`action-btn ${graphMode === "functions" ? "active" : ""}`} onClick={() => { setGraphMode("functions"); setSelectedNode(null); }} type="button">
+                  FUNCTION CALLS ({(result?.edges || []).filter((edge) => edge.type === "calls").length})
+                </button>
+              </div>
+              {graphMode === "files" && <GraphLegend directories={directories} />}
+              {graphMode === "functions" && (
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-heavy)", fontSize: 11, color: "var(--text-muted)" }}>
+                  Green nodes are functions. Green arrows show detected function calls. Counts reflect edges returned by the backend.
+                </div>
+              )}
 
               <div
                 style={{
@@ -1321,7 +1434,7 @@ function AppContent() {
                         marginBottom: 12
                       }}
                     >
-                      <strong>[ FILE INSPECTOR ]</strong>
+                      <strong>{graphMode === "functions" ? "[ FUNCTION INSPECTOR ]" : "[ FILE INSPECTOR ]"}</strong>
 
                       <button
                         className="action-btn"
@@ -1356,7 +1469,7 @@ function AppContent() {
                         marginBottom: 12
                       }}
                     >
-                      PATH: {selectedNode.data.path}
+                      PATH: {selectedNode.data.path}{selectedNode.data.line ? `:${selectedNode.data.line}` : ""}
                     </div>
 
                     <div
@@ -1376,7 +1489,7 @@ function AppContent() {
                         marginTop: 10
                       }}
                     >
-                      <strong>OUTGOING IMPORTS ({outgoing.length}):</strong>
+                      <strong>{graphMode === "functions" ? "OUTGOING CALLS" : "OUTGOING IMPORTS"} ({outgoing.length}):</strong>
 
                       {outgoing.length === 0 && (
                         <div
@@ -1386,7 +1499,7 @@ function AppContent() {
                             marginTop: 6
                           }}
                         >
-                          No outgoing imports found.
+                          No outgoing dependencies found.
                         </div>
                       )}
 
@@ -1400,7 +1513,7 @@ function AppContent() {
                             overflowWrap: "anywhere"
                           }}
                         >
-                          → {edge.target.split("/").pop()}
+                          → {graphMode === "functions" ? edge.target.split("::").pop() : edge.target.split("/").pop()}
                         </div>
                       ))}
                     </div>
@@ -1412,7 +1525,7 @@ function AppContent() {
                         marginTop: 14
                       }}
                     >
-                      <strong>INCOMING IMPORTS ({incoming.length}):</strong>
+                      <strong>{graphMode === "functions" ? "INCOMING CALLS" : "INCOMING IMPORTS"} ({incoming.length}):</strong>
 
                       {incoming.length === 0 && (
                         <div
@@ -1422,7 +1535,7 @@ function AppContent() {
                             marginTop: 6
                           }}
                         >
-                          No incoming imports found.
+                          No incoming dependencies found.
                         </div>
                       )}
 
@@ -1436,7 +1549,7 @@ function AppContent() {
                             overflowWrap: "anywhere"
                           }}
                         >
-                          ← {edge.source.split("/").pop()}
+                          ← {graphMode === "functions" ? edge.source.split("::").pop() : edge.source.split("/").pop()}
                         </div>
                       ))}
                     </div>
@@ -1447,7 +1560,7 @@ function AppContent() {
                       style={{ marginTop: 18, width: "100%" }}
                       type="button"
                     >
-                      FOCUS THIS FILE
+                      {graphMode === "functions" ? "FOCUS THIS FUNCTION" : "FOCUS THIS FILE"}
                     </button>
                   </aside>
                 )}
