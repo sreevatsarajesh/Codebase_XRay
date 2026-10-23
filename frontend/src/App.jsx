@@ -687,7 +687,9 @@ function AppContent() {
       const payload =
         scanMode === "github" ? { url: input } : { path: input };
 
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+      const response = await fetch(`${API_URL}${normalizedEndpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
