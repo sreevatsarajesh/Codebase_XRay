@@ -178,16 +178,24 @@ const nodeTypes = {
   folderGroup: FolderGroupNode
 };
 
-function makeGraph(result) {
+function makeGraph(result, relationshipMode = "imports") {
   const files = (result.nodes || [])
     .filter((node) => node.type === "file")
     .sort((a, b) => a.path.localeCompare(b.path));
 
   const fileIds = new Set(files.map((file) => file.id));
 
-  const graphEdges = (result.edges || []).filter(
-    (edge) => fileIds.has(edge.source) && fileIds.has(edge.target)
-  );
+  const graphEdges = (result.edges || []).filter((edge) => {
+    if (!fileIds.has(edge.source) || !fileIds.has(edge.target)) return false;
+
+    if (relationshipMode === "database") {
+      return edge.type === "database";
+    }
+
+    return edge.type === "imports" || (
+      edge.type === "database" && Boolean(edge.module)
+    );
+  });
 
   const nodeWidth = 244;
   const nodeHeight = 69;
@@ -306,37 +314,42 @@ function makeGraph(result) {
     });
   });
 
-  const edges = graphEdges.map((edge, index) => ({
-    id: `edge-${index}-${edge.source}-${edge.target}`,
-    source: edge.source,
-    target: edge.target,
-    label: "IMPORTS",
-    type: "smoothstep",
-    animated: true,
-    zIndex: 1,
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      width: 14,
-      height: 14,
-      color: "#f59e0b"
-    },
-    style: {
-      stroke: "#f59e0b",
-      strokeWidth: 2
-    },
-    labelStyle: {
-      fill: "var(--text-main)",
-      fontSize: 9,
-      fontFamily: "inherit",
-      fontWeight: "bold"
-    },
-    labelBgStyle: {
-      fill: "var(--bg-color)",
-      fillOpacity: 0.95,
-      stroke: "#f59e0b",
-      strokeWidth: 1
-    }
-  }));
+  const edges = graphEdges.map((edge, index) => {
+    const isDatabase = relationshipMode === "database";
+    const edgeColor = isDatabase ? "#22d3ee" : "#f59e0b";
+
+    return {
+      id: `edge-${index}-${edge.source}-${edge.target}-${edge.type}`,
+      source: edge.source,
+      target: edge.target,
+      label: isDatabase ? "DATABASE ACCESS" : "IMPORTS",
+      type: "smoothstep",
+      animated: true,
+      zIndex: 1,
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 14,
+        height: 14,
+        color: edgeColor
+      },
+      style: {
+        stroke: edgeColor,
+        strokeWidth: 2
+      },
+      labelStyle: {
+        fill: "var(--text-main)",
+        fontSize: 9,
+        fontFamily: "inherit",
+        fontWeight: "bold"
+      },
+      labelBgStyle: {
+        fill: "var(--bg-color)",
+        fillOpacity: 0.95,
+        stroke: edgeColor,
+        strokeWidth: 1
+      }
+    };
+  });
 
   return {
     nodes: [...folderNodes, ...fileNodes],
@@ -519,6 +532,17 @@ function GraphLegend({ directories }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span
+          style={{
+            display: "inline-block",
+            width: 20,
+            borderTop: "2px solid #22d3ee"
+          }}
+        />
+        <span>DATABASE ACCESS → related code</span>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <FileCode2 size={14} />
         <span>File node — draggable</span>
       </div>
@@ -693,7 +717,13 @@ function AppContent() {
   }, [scanMode, repoPath, repoUrl]);
 
   const rawGraph = useMemo(
-    () => (result ? (graphMode === "functions" ? makeFunctionGraph(result) : makeGraph(result)) : { nodes: [], edges: [] }),
+    () => (
+      result
+        ? graphMode === "functions"
+          ? makeFunctionGraph(result)
+          : makeGraph(result, graphMode === "database" ? "database" : "imports")
+        : { nodes: [], edges: [] }
+    ),
     [result, graphMode]
   );
 
@@ -1424,13 +1454,21 @@ function AppContent() {
                   </span>
                 )}
                 <button className={`action-btn ${graphMode === "files" ? "active" : ""}`} onClick={() => { setGraphMode("files"); setSelectedNode(null); setAnalysisMode(null); }} type="button">
-                  FILE IMPORTS ({(result?.edges || []).filter((edge) => edge.type === "imports").length})
+                  FILE IMPORTS ({(result?.edges || []).filter((edge) => edge.type === "imports" || (edge.type === "database" && Boolean(edge.module))).length})
+                </button>
+                <button className={`action-btn ${graphMode === "database" ? "active" : ""}`} onClick={() => { setGraphMode("database"); setSelectedNode(null); setAnalysisMode(null); }} type="button">
+                  DATABASE ACCESS ({(result?.edges || []).filter((edge) => edge.type === "database").length})
                 </button>
                 <button className={`action-btn ${graphMode === "functions" ? "active" : ""}`} onClick={() => { setGraphMode("functions"); setSelectedNode(null); setAnalysisMode(null); }} type="button">
                   FUNCTION CALLS ({(result?.edges || []).filter((edge) => edge.type === "calls").length})
                 </button>
               </div>
-              {graphMode === "files" && <GraphLegend directories={directories} />}
+              {graphMode !== "functions" && <GraphLegend directories={directories} />}
+              {graphMode === "database" && (
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-heavy)", fontSize: 11, color: "var(--text-muted)" }}>
+                  Cyan arrows show detected or inferred database relationships. Orange arrows in FILE IMPORTS show module imports.
+                </div>
+              )}
               {graphMode === "functions" && (
                 <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-heavy)", fontSize: 11, color: "var(--text-muted)" }}>
                   Green nodes are functions. Green arrows show detected function calls. Counts reflect edges returned by the backend.
