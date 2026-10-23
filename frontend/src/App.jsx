@@ -29,7 +29,6 @@ import "./App.css";
 const API_URL = "http://127.0.0.1:8000";
 const DEFAULT_PATH =
   "/Users/sreevatsarajesh/Documents/GitHub/cybersecuritylabs";
-
 const FOLDER_COLORS = [
   "#38bdf8",
   "#a78bfa",
