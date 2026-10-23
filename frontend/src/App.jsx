@@ -29,6 +29,7 @@ import "./App.css";
 const API_URL = "http://127.0.0.1:8000";
 const DEFAULT_PATH =
   "/Users/sreevatsarajesh/Documents/GitHub/cybersecuritylabs";
+
 const FOLDER_COLORS = [
   "#38bdf8",
   "#a78bfa",
@@ -59,7 +60,8 @@ function getFolderColor(directory) {
 }
 
 function FileNode({ data, selected }) {
-  const accent = data.color || "#38bdf8";
+  const accent = data.analysisHighlight ? "#facc15" : data.color || "#38bdf8";
+  const dimmed = data.analysisActive && !data.analysisHighlight;
 
   return (
     <div
@@ -70,7 +72,9 @@ function FileNode({ data, selected }) {
         boxShadow: selected
           ? `0 0 0 2px ${accent}55, 3px 3px 0 ${accent}55`
           : `3px 3px 0 ${accent}35`,
-        background: "var(--bg-color)"
+        background: "var(--bg-color)",
+        opacity: dimmed ? 0.28 : 1,
+        transition: "opacity 160ms ease, border-color 160ms ease, box-shadow 160ms ease"
       }}
     >
       <Handle
@@ -623,6 +627,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState("graph");
   const [graphNodes, setGraphNodes] = useState([]);
   const [graphMode, setGraphMode] = useState("files");
+  const [analysisMode, setAnalysisMode] = useState(null);
 
   const previousFolderPositions = useRef(new Map());
 
@@ -649,6 +654,7 @@ function AppContent() {
     setLoading(true);
     setError("");
     setSelectedNode(null);
+    setAnalysisMode(null);
 
     try {
       const endpoint =
@@ -691,6 +697,38 @@ function AppContent() {
     [result, graphMode]
   );
 
+  const analysisResult = useMemo(() => {
+    if (!analysisMode || !selectedNode) {
+      return { nodeIds: new Set(), edgeIds: new Set() };
+    }
+
+    const direction = analysisMode === "impact" ? "incoming" : "outgoing";
+    const nodeIds = new Set([selectedNode.id]);
+    const edgeIds = new Set();
+    const queue = [selectedNode.id];
+
+    while (queue.length) {
+      const currentId = queue.shift();
+      const connectedEdges = rawGraph.edges.filter((edge) =>
+        direction === "incoming"
+          ? edge.target === currentId
+          : edge.source === currentId
+      );
+
+      connectedEdges.forEach((edge) => {
+        edgeIds.add(edge.id);
+        const nextId = direction === "incoming" ? edge.source : edge.target;
+
+        if (!nodeIds.has(nextId)) {
+          nodeIds.add(nextId);
+          queue.push(nextId);
+        }
+      });
+    }
+
+    return { nodeIds, edgeIds };
+  }, [analysisMode, selectedNode, rawGraph.edges]);
+
   useEffect(() => {
     setGraphNodes(rawGraph.nodes);
 
@@ -732,10 +770,23 @@ function AppContent() {
         matchingDirectories.has(node.data.directory)
     );
 
-    return graphMode === "functions"
+    const filteredNodes = graphMode === "functions"
       ? matchingFiles
       : [...folders, ...matchingFiles];
-  }, [fileNodes, graphNodes, search, graphMode]);
+
+    return filteredNodes.map((node) => {
+      if (node.type !== "fileNode") return node;
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          analysisActive: Boolean(analysisMode),
+          analysisHighlight: analysisResult.nodeIds.has(node.id)
+        }
+      };
+    });
+  }, [fileNodes, graphNodes, search, graphMode, analysisMode, analysisResult.nodeIds]);
 
   const visibleNodeIds = useMemo(
     () => new Set(visibleNodes.map((node) => node.id)),
@@ -744,12 +795,37 @@ function AppContent() {
 
   const visibleEdges = useMemo(
     () =>
-      rawGraph.edges.filter(
-        (edge) =>
-          visibleNodeIds.has(edge.source) &&
-          visibleNodeIds.has(edge.target)
-      ),
-    [rawGraph.edges, visibleNodeIds]
+      rawGraph.edges
+        .filter(
+          (edge) =>
+            visibleNodeIds.has(edge.source) &&
+            visibleNodeIds.has(edge.target)
+        )
+        .map((edge) => {
+          if (!analysisMode) return edge;
+
+          const highlighted = analysisResult.edgeIds.has(edge.id);
+
+          return {
+            ...edge,
+            animated: highlighted,
+            style: {
+              ...edge.style,
+              stroke: highlighted ? "#facc15" : "var(--border-light)",
+              strokeWidth: highlighted ? 3 : 1,
+              opacity: highlighted ? 1 : 0.16
+            },
+            markerEnd: {
+              ...edge.markerEnd,
+              color: highlighted ? "#facc15" : "var(--border-light)"
+            },
+            labelStyle: {
+              ...edge.labelStyle,
+              fill: highlighted ? "#facc15" : "var(--text-muted)"
+            }
+          };
+        }),
+    [rawGraph.edges, visibleNodeIds, analysisMode, analysisResult.edgeIds]
   );
 
   const onNodeDragStart = useCallback((_, node) => {
@@ -813,6 +889,7 @@ function AppContent() {
   const onNodeClick = useCallback((_, node) => {
     if (node.type === "fileNode") {
       setSelectedNode(node);
+      setAnalysisMode(null);
     }
   }, []);
 
@@ -1323,10 +1400,33 @@ function AppContent() {
               />
 
               <div style={{ display: "flex", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border-heavy)", background: "var(--bg-color)", flexWrap: "wrap" }}>
-                <button className={`action-btn ${graphMode === "files" ? "active" : ""}`} onClick={() => { setGraphMode("files"); setSelectedNode(null); }} type="button">
+                <button
+                  className={`action-btn ${analysisMode === "impact" ? "active" : ""}`}
+                  onClick={() => setAnalysisMode((mode) => mode === "impact" ? null : "impact")}
+                  disabled={!selectedNode}
+                  title="Highlight dependencies that may be affected by changing the selected node"
+                  type="button"
+                >
+                  CHANGE IMPACT{analysisMode === "impact" ? ` (${Math.max(0, analysisResult.nodeIds.size - 1)})` : ""}
+                </button>
+                <button
+                  className={`action-btn ${analysisMode === "trace" ? "active" : ""}`}
+                  onClick={() => setAnalysisMode((mode) => mode === "trace" ? null : "trace")}
+                  disabled={!selectedNode}
+                  title="Trace outgoing dependencies or function calls from the selected node"
+                  type="button"
+                >
+                  TRACE FLOW{analysisMode === "trace" ? ` (${Math.max(0, analysisResult.nodeIds.size - 1)})` : ""}
+                </button>
+                {analysisMode && (
+                  <span style={{ alignSelf: "center", color: "var(--text-muted)", fontSize: 11 }}>
+                    YELLOW = HIGHLIGHTED PATH · SELECT A NODE TO START AGAIN
+                  </span>
+                )}
+                <button className={`action-btn ${graphMode === "files" ? "active" : ""}`} onClick={() => { setGraphMode("files"); setSelectedNode(null); setAnalysisMode(null); }} type="button">
                   FILE IMPORTS ({(result?.edges || []).filter((edge) => edge.type === "imports").length})
                 </button>
-                <button className={`action-btn ${graphMode === "functions" ? "active" : ""}`} onClick={() => { setGraphMode("functions"); setSelectedNode(null); }} type="button">
+                <button className={`action-btn ${graphMode === "functions" ? "active" : ""}`} onClick={() => { setGraphMode("functions"); setSelectedNode(null); setAnalysisMode(null); }} type="button">
                   FUNCTION CALLS ({(result?.edges || []).filter((edge) => edge.type === "calls").length})
                 </button>
               </div>
@@ -1480,6 +1580,14 @@ function AppContent() {
                     >
                       FOLDER: {selectedNode.data.directory}
                     </div>
+
+                    {analysisMode && (
+                      <div style={{ borderLeft: "3px solid #facc15", padding: "8px 10px", marginBottom: 12, fontSize: 12, color: "var(--text-muted)" }}>
+                        {analysisMode === "impact"
+                          ? `${Math.max(0, analysisResult.nodeIds.size - 1)} upstream node(s) may be affected by changing this ${graphMode === "functions" ? "function" : "file"}.`
+                          : `${Math.max(0, analysisResult.nodeIds.size - 1)} downstream node(s) are reachable from this ${graphMode === "functions" ? "function" : "file"}.`}
+                      </div>
+                    )}
 
                     <div
                       style={{
