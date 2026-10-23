@@ -1021,7 +1021,7 @@ function AppContent() {
           <div className="api-status-wrapper">
             STATUS:{" "}
             <span className="status-text live">
-              ONLINE (127.0.0.1:8000)
+              ONLINE ({API_URL})
             </span>
           </div>
         </header>
