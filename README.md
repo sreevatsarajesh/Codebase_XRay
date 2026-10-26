@@ -2,149 +2,177 @@
 
 ### See the structure. Trace the dependencies. Understand the codebase.
 
-Codebase X-Ray is a static code intelligence and repository visualization tool that scans Python repositories, extracts structural information, identifies import relationships, and renders an interactive architecture graph.
+**Codebase X-Ray** is an interactive codebase visualization tool that transforms Python repositories into navigable architecture graphs. It uses static analysis to discover source files and import relationships, helping developers understand how a project is organized and how its components connect.
 
-Instead of manually navigating files and imports, developers can explore a repository visually, inspect individual files, and understand how different parts of a codebase connect.
+Instead of manually jumping between files, explore the repository visually, inspect dependencies, and navigate unfamiliar codebases from a single interface.
+
+<p align="center">
+  <a href="https://codebase-xray-1.onrender.com">
+    <strong>Live Demo →</strong>
+  </a>
+</p>
+
+---
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
-- [Technology Stack](#technology-stack)
 - [Architecture](#architecture)
-- [Project Structure](#project-structure)
+- [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
-- [Usage](#usage)
+- [Running Locally](#running-locally)
+- [Using Codebase X-Ray](#using-codebase-x-ray)
 - [API Reference](#api-reference)
-- [Limitations](#limitations)
+- [Security and Limitations](#security-and-limitations)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
+- [Author](#author)
 
 ---
 
 ## Overview
 
-Understanding an unfamiliar codebase can be time-consuming. Files are distributed across directories, dependencies are not always obvious, and tracing relationships manually can slow down development.
+Understanding an unfamiliar repository is one of the most time-consuming parts of software development. File structures can be large, dependencies can be difficult to trace, and the impact of a change may not be obvious.
 
-Codebase X-Ray addresses this problem by turning repository structure into an interactive visual graph.
+Codebase X-Ray approaches this problem by converting repository structure into an interactive visual graph.
 
 **The workflow:**
 
-`Repository → Static Analysis → Dependency Graph → Interactive Exploration`
+`Repository → Python AST Analysis → Dependency Extraction → Interactive Graph`
 
-The application consists of a FastAPI backend that analyzes Python repositories and a React frontend that visualizes the results using React Flow.
+The project combines a Python static-analysis backend with a React-based visualization interface to make codebase exploration more intuitive.
 
 ## Features
 
-### Repository Scanning
-- Scan local repositories using a filesystem path.
-- Scan public GitHub repositories using their URLs.
-- Upload a ZIP archive of a Python project for hosted scanning.
+### Repository Analysis
+
+- Scan public GitHub repositories.
+- Scan local repositories when running the backend on the same machine.
 - Discover Python source files.
-- Extract structural information and import relationships.
-- Report repository statistics and parsing errors.
+- Extract available structural information and import relationships.
+- Report scan statistics and parsing errors.
 
 ### Interactive Architecture Graph
-- Visualize Python files as graph nodes.
-- Represent file-level imports as directed edges.
-- Automatically arrange the graph using Dagre.
-- Pan, zoom, and reposition graph nodes.
-- Group files by directory.
-- Move folder groups and their contained files.
-- Inspect incoming and outgoing dependencies.
 
-### Code Exploration
-- Search files by name or path.
+- Visualize source files as graph nodes.
+- Display detected import relationships as directed edges.
+- Automatically arrange the initial graph using Dagre.
+- Pan, zoom, and navigate large graph layouts.
+- Drag individual nodes to reorganize the view.
+- Move folder groups and their contained files.
+- Fit the graph to the available viewport or focus on a selected file.
+- Explore the graph in fullscreen mode.
+
+### Folder-Based Visualization
+
+- Group files by directory.
+- Distinguish folders using consistent accent colors.
+- Display folder-level file counts.
+- Use a graph legend to understand folders and dependency connections.
+
+### File Inspector
+
+Select a node to inspect available file information, including:
+
+- File name and repository path.
+- Parent directory.
+- Incoming imports.
+- Outgoing imports.
+- Connected files in the architecture graph.
+
+### Search and Navigation
+
+- Filter files by name or path.
 - Switch between graph and repository file views.
-- Inspect individual files and their relationships.
-- Open the graph in fullscreen mode.
-- Switch between light and dark themes.
+- Navigate to selected nodes.
+- Toggle between dark and light themes.
 
 ### Repository Metrics
-- Python files scanned.
+
+View analysis statistics where available, including:
+
+- Files scanned.
 - Graph nodes discovered.
 - Dependency edges identified.
-- Functions and classes detected, where available.
-- Parsing errors reported.
+- Functions and classes detected.
+- Parsing errors encountered.
 
-## Technology Stack
+### ZIP Repository Upload
 
-| Technology | Purpose |
-|---|---|
-| Python | Source-code analysis |
-| Python AST | Static source inspection |
-| FastAPI | Backend API |
-| Uvicorn | ASGI server |
-| React | Frontend interface |
-| Vite | Frontend development and build |
-| React Flow | Interactive graph visualization |
-| Dagre | Automatic graph layout |
-| Lucide React | Interface icons |
+The backend includes a ZIP-upload scanning endpoint for analyzing uploaded repository archives. Upload compatibility depends on the archive's structure and the server's configured security limits. Archives containing symlinks or excessive entries may be rejected.
+
+---
 
 ## Architecture
 
-```text
-                   CODEBASE X-RAY
-                         |
-              +----------+----------+
-              |                     |
-        React Frontend         FastAPI Backend
-              |                     |
-        React Flow Graph       Repository Scanner
-              |                     |
-        File Inspector          Python AST
-              |                     |
-        Graph Navigation       Import Extraction
-              |                     |
-              +----------+----------+
-                         |
-                  Dependency Graph
-```
-
-The frontend communicates with the backend through HTTP requests. The backend scans the selected repository and returns structured data that the frontend converts into an interactive graph.
-
-## Project Structure
+Codebase X-Ray separates repository analysis from visualization.
 
 ```text
-codebase_XRay/
-├── backend/
-│   ├── app.py
-│   ├── scanner.py
-│   ├── test_scanner.py
-│   └── requirements.txt
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── assets/
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   ├── footer.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── package.json
-│   ├── package-lock.json
-│   └── vite.config.js
-├── .gitattributes
-├── .gitignore
-├── LICENSE
-└── README.md
+                  CODEBASE X-RAY
+                        |
+              +---------+---------+
+              |                   |
+        React Frontend       FastAPI Backend
+              |                   |
+        React Flow UI       Repository Scanner
+              |                   |
+        Graph Rendering      Python AST Analysis
+              |                   |
+        User Interaction     Import Extraction
+              |                   |
+              +---------+---------+
+                        |
+                Dependency Graph
 ```
 
-> This tree represents the main files shown in the current project structure. Local virtual environments, `node_modules`, and generated files are excluded from version control.
+### Frontend
+
+The React frontend handles repository input, scan controls, graph rendering, search, file inspection, themes, and navigation.
+
+### Backend
+
+The FastAPI backend exposes endpoints for repository scanning and returns structured analysis results to the frontend.
+
+### Static Analysis
+
+Python's Abstract Syntax Tree (AST) facilities allow source code to be inspected without executing it. The scanner extracts definitions and import information that can be used to construct a dependency graph.
+
+### Graph Layout
+
+Dagre calculates the initial graph layout, while React Flow provides interactive node positioning, navigation, and graph rendering.
+
+---
+
+## Technology Stack
+
+| Component | Technology |
+|---|---|
+| Frontend | React |
+| Build tool | Vite |
+| Graph visualization | React Flow (`@xyflow/react`) |
+| Graph layout | Dagre (`@dagrejs/dagre`) |
+| Icons | Lucide React |
+| Backend API | FastAPI |
+| Application server | Uvicorn |
+| Static analysis | Python AST |
+| Communication | HTTP and JSON |
+| Deployment | Render |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-Make sure you have the following installed:
+Install the following:
 
-- Python 3.10 or a compatible version supported by the project dependencies.
+- Python 3.10 or a compatible version supported by the backend dependencies.
 - Node.js and npm.
 - Git.
 
-Verify your installations:
+Check your installation:
 
 ```bash
 python3 --version
@@ -160,7 +188,6 @@ git clone <https://github.com/sreevatsarajesh/Codebase_XRay>
 cd codebase_XRay
 ```
 
-
 ### 2. Set up the backend
 
 ```bash
@@ -171,6 +198,8 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+The backend dependency file should contain the packages required by the current application.
+
 ### 3. Set up the frontend
 
 Open a second terminal from the project root:
@@ -180,11 +209,15 @@ cd frontend
 npm install
 ```
 
-## Running the Application
+The frontend dependencies are declared in `package.json`.
+
+---
+
+## Running Locally
 
 Run the backend and frontend in separate terminals.
 
-### Terminal 1 — Backend
+### Terminal 1: Backend
 
 From the project root:
 
@@ -194,12 +227,13 @@ source .venv/bin/activate
 uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The backend API will be available at:
+The API should be available at:
 
-- API: http://127.0.0.1:8000
-- Interactive API documentation: http://127.0.0.1:8000/docs
+- API base: `http://127.0.0.1:8000`
+- Interactive API documentation: `http://127.0.0.1:8000/docs`
+- Health check: `http://127.0.0.1:8000/api/health`
 
-### Terminal 2 — Frontend
+### Terminal 2: Frontend
 
 From the project root:
 
@@ -210,30 +244,65 @@ npm run dev
 
 Open the local URL printed by Vite, typically:
 
-http://localhost:5173
+`http://localhost:5173`
 
 Keep both servers running while using the application.
 
-## Usage
+If the frontend uses a configurable API base URL, configure its Vite environment variable to point to `http://127.0.0.1:8000` for local development. Follow the variable name used in the current frontend source.
 
-1. Start the backend and frontend.
-2. Open the frontend in your browser.
-3. Select GitHub scanning or local repository scanning.
-4. Enter a public GitHub repository URL or a local path accessible to the backend.
-5. Start the scan.
-6. Explore the generated dependency graph and repository metrics.
-7. Select files to inspect their relationships.
-8. Use search, folder grouping, zoom, and fullscreen controls to navigate the graph.
+---
 
-### ZIP Upload
+## Using Codebase X-Ray
 
-On the hosted website, choose **UPLOAD ZIP**, select a `.zip` archive of your project, and click **SCAN**. Only Python source files are extracted and analyzed. ZIP uploads are limited to 30 MB, 2,000 Python files, 2 MB per Python file, and 100 MB of total extracted Python source. Unsafe paths and symbolic links are rejected. The archive is processed in a temporary directory that is removed after the scan.
+### 1. Choose a repository
 
-For the most reliable results, create a ZIP that contains your project folder and excludes `.git`, virtual environments, `node_modules`, build output, credentials, and other generated files.
+Select a supported scanning method:
+
+- **GitHub URL:** Enter the URL of a public GitHub repository.
+- **Local path:** Enter an absolute path to a repository accessible to the machine running the backend.
+- **ZIP upload:** Upload a compatible repository archive if the upload interface is available.
+
+**Important:** When using the hosted demo, a local path refers to the server's filesystem, not your personal computer. Use GitHub scanning or ZIP upload to provide source code to the hosted service.
+
+### 2. Run the scan
+
+Start the scan and wait for the backend to return the analysis results.
+
+### 3. Explore the architecture
+
+- Pan across the canvas and zoom in or out.
+- Drag nodes to reorganize the graph.
+- Move folder groups to arrange related files.
+- Search for a file by name or path.
+- Select a node to inspect its dependencies.
+- Use the graph controls to fit the graph into view or focus on a selected file.
+
+### 4. Trace dependencies
+
+Use incoming and outgoing import relationships to understand how detected Python modules connect.
+
+### 5. Review the metrics
+
+Inspect the available scan statistics and parsing errors to understand what the scanner could analyze successfully.
+
+---
 
 ## API Reference
 
-The backend exposes the following scanning endpoints.
+The following endpoints are implemented by the backend.
+
+Base URL for local development:
+
+`http://127.0.0.1:8000`
+
+For the hosted application, use the deployed backend service URL.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/health` | Check backend health |
+| `POST` | `/api/scan` | Scan a repository path accessible to the backend |
+| `POST` | `/api/scan/github` | Retrieve and scan a public GitHub repository |
+| `POST` | `/api/scan/upload` | Upload and scan a ZIP archive |
 
 ### Scan a local repository
 
@@ -245,14 +314,6 @@ Example request:
 {
   "path": "/absolute/path/to/repository"
 }
-```
-
-Example command:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/scan \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/absolute/path/to/repository"}'
 ```
 
 ### Scan a GitHub repository
@@ -267,67 +328,70 @@ Example request:
 }
 ```
 
-Example command:
+### Upload a ZIP archive
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/scan/github \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://github.com/owner/repository"}'
-```
+`POST /api/scan/upload`
 
-### Scan an uploaded ZIP archive
+Submit a ZIP archive using a multipart form upload with the field name expected by the backend endpoint.
 
-`POST /api/scan/upload` accepts `multipart/form-data` with a file field named `file`.
+For exact request schemas, validation rules, and response structures, use FastAPI's interactive documentation at `/docs`.
 
-Example command:
+---
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/scan/upload \\
-  -F "file=@project.zip"
-```
+## Security and Limitations
 
-The endpoint analyzes Python files only. Limits are 30 MB per upload, 2,000 Python files, 2 MB per Python file, and 100 MB total extracted Python source. Unsafe archive paths and symbolic links are rejected.
+Codebase X-Ray is a static-analysis and visualization tool, not a complete code-security auditing platform.
 
-Interactive API documentation is available at:
+- **Language coverage:** Current analysis focuses on Python repositories.
+- **Static analysis:** Runtime behavior and dependencies that are only visible during execution may not be represented.
+- **Dynamic imports:** Complex import patterns and unresolved modules may be missed.
+- **Graph completeness:** The graph represents relationships detected by the scanner, not necessarily every dependency in the application.
+- **Large repositories:** Very large repositories may encounter processing, size, or graph-rendering limits.
+- **Local paths:** A hosted backend cannot directly read files from a user's local computer.
+- **ZIP uploads:** Archive size, entry count, file count, extracted source size, and symlink restrictions can prevent some archives from being accepted.
+- **Security conclusions:** A dependency graph alone cannot prove that a repository is secure or vulnerable.
 
-http://127.0.0.1:8000/docs
+The scanner should not execute uploaded source code as part of static analysis. Archive extraction and repository retrieval must continue to enforce appropriate path and resource limits.
 
-## Limitations
-
-- Analysis currently focuses on Python repositories.
-- Dynamic imports and complex module resolution may not be fully represented.
-- Unresolved imports do not necessarily indicate errors.
-- Static analysis cannot identify every runtime dependency.
-- Graph readability may decrease for large repositories.
-- GitHub scanning depends on network access and the backend's repository retrieval implementation.
-- Codebase X-Ray is a code exploration tool, not a complete security scanner or proof that code is safe.
+---
 
 ## Roadmap
 
-Potential future improvements include:
+Potential directions for future development:
 
-- More accurate import resolution.
-- Additional code relationship analysis.
-- Better graph layouts for large repositories.
-- Expanded repository metrics.
-- Additional automated tests.
-- Improved usability and documentation.
+- [ ] Expand language support beyond Python.
+- [ ] Improve module resolution and dependency accuracy.
+- [ ] Add function-level and class-level relationship exploration.
+- [ ] Trace execution paths across related functions.
+- [ ] Introduce change-impact analysis for modified files.
+- [ ] Add guided challenges for learning unfamiliar repositories.
+- [ ] Improve large-graph performance and filtering.
+- [ ] Expand automated testing and regression coverage.
+- [ ] Improve ZIP-upload diagnostics and archive compatibility.
+
+These are planned directions, not claims that the features are already implemented.
+
+---
 
 ## Contributing
 
-Contributions, bug reports, and suggestions are welcome.
+Contributions, bug reports, and feature suggestions are welcome.
 
 1. Fork the repository.
 2. Create a feature branch.
-3. Implement your changes.
-4. Run the relevant tests.
+3. Implement and test your changes.
+4. Run relevant backend tests and verify the frontend build.
 5. Submit a pull request describing your changes.
 
-For significant changes, consider opening an issue before implementing the feature.
+For substantial changes, open an issue first to discuss the proposed implementation.
+
+---
 
 ## License
 
 This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for details.
+
+---
 
 ## Author
 
@@ -338,36 +402,6 @@ Mathematics and Computing undergraduate interested in software development, stat
 ---
 
 <p align="center">
-  <strong>Codebase X-Ray</strong><br>
+  <strong>CODEBASE X-RAY</strong><br>
   <sub>Make complex codebases easier to see and understand.</sub>
 </p>
-
-## Testing
-
-From the `backend` directory:
-
-```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
-```
-
-Build the frontend from the `frontend` directory:
-
-```bash
-npm ci
-npm run build
-```
-
-For local frontend development, copy `.env.example` to `.env.local` and adjust `VITE_API_URL` if the backend is not running at `http://127.0.0.1:8000`.
-
-## Deployment Notes
-
-- Deploy the FastAPI service with the `backend` directory as its root and start command `uvicorn app:app --host 0.0.0.0 --port $PORT`.
-- Deploy the frontend as a static site with `frontend` as its root, build command `npm ci && npm run build`, and publish directory `dist`.
-- Set `VITE_API_URL` on the frontend static site to the backend's HTTPS URL without a trailing slash. Vite variables are embedded at build time, so redeploy after changing this value.
-- Update the backend CORS allowlist in `backend/app.py` if the frontend's production domain changes.
-- Local filesystem paths are only accessible when the API runs on the same machine that owns the path. On the hosted website, use GitHub URLs or ZIP uploads.
-
-## Security and Scope
-
-Codebase X-Ray performs static analysis; it does not execute uploaded code. It currently analyzes Python source files. Uploads and public GitHub downloads have size and file-count limits. Do not upload secrets or private code unless you are comfortable sending it to the service operator.
