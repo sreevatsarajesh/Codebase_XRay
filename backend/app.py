@@ -63,7 +63,7 @@ def github_request(url: str, limit: int | None = None) -> bytes:
             if limit is not None and len(data) > limit:
                 raise HTTPException(
                     status_code=413,
-                    detail="Repository archive exceeds the 30 MB download limit.",
+                    detail="Repository archive exceeds the 100 MB download limit.",
                 )
 
             return data
