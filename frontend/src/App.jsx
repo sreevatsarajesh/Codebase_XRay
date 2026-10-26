@@ -27,8 +27,7 @@ import "@xyflow/react/dist/style.css";
 import "./App.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
-const DEFAULT_PATH =
-  "/Users/sreevatsarajesh/Documents/GitHub/cybersecuritylabs";
+const DEFAULT_PATH = "";
 
 const FOLDER_COLORS = [
   "#38bdf8",
@@ -643,6 +642,7 @@ function AppContent() {
   const [scanMode, setScanMode] = useState("github");
   const [repoPath, setRepoPath] = useState(DEFAULT_PATH);
   const [repoUrl, setRepoUrl] = useState("");
+  const [zipFile, setZipFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -664,9 +664,14 @@ function AppContent() {
   }, [darkTheme]);
 
   const runScan = useCallback(async () => {
+    if (scanMode === "upload" && !zipFile) {
+      setError("Choose a ZIP archive containing your Python project.");
+      return;
+    }
+
     const input = scanMode === "github" ? repoUrl.trim() : repoPath.trim();
 
-    if (!input) {
+    if (scanMode !== "upload" && !input) {
       setError(
         scanMode === "github"
           ? "Enter a public GitHub repository URL."
@@ -682,19 +687,32 @@ function AppContent() {
 
     try {
       const endpoint =
-        scanMode === "github" ? "/api/scan/github" : "/api/scan";
-
-      const payload =
-        scanMode === "github" ? { url: input } : { path: input };
+        scanMode === "github"
+          ? "/api/scan/github"
+          : scanMode === "upload"
+            ? "/api/scan/upload"
+            : "/api/scan";
 
       const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+      let options;
 
-      const response = await fetch(`${API_URL}${normalizedEndpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      if (scanMode === "upload") {
+        const formData = new FormData();
+        formData.append("file", zipFile);
+        options = {
+          method: "POST",
+          body: formData
+        };
+      } else {
+        const payload = scanMode === "github" ? { url: input } : { path: input };
+        options = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        };
+      }
 
+      const response = await fetch(`${API_URL}${normalizedEndpoint}`, options);
       const body = await response.json();
 
       if (!response.ok) {
@@ -710,13 +728,13 @@ function AppContent() {
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
-          ? "Cannot connect to the API. Make sure FastAPI is running at 127.0.0.1:8000."
+          ? `Cannot connect to the API at ${API_URL}. Check the backend service and network connection.`
           : err.message
       );
     } finally {
       setLoading(false);
     }
-  }, [scanMode, repoPath, repoUrl]);
+  }, [scanMode, repoPath, repoUrl, zipFile]);
 
   const rawGraph = useMemo(
     () => (
@@ -1080,7 +1098,7 @@ function AppContent() {
                 boxShadow: "4px 4px 0px var(--border-heavy)"
               }}
             >
-              <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
                 <button
                   className="action-btn"
                   onClick={() => setScanMode("github")}
@@ -1098,6 +1116,15 @@ function AppContent() {
                 >
                   LOCAL PATH
                 </button>
+
+                <button
+                  className="action-btn"
+                  onClick={() => setScanMode("upload")}
+                  style={{ opacity: scanMode === "upload" ? 1 : 0.6 }}
+                  type="button"
+                >
+                  UPLOAD ZIP
+                </button>
               </div>
 
               <form
@@ -1110,33 +1137,50 @@ function AppContent() {
                 <div
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     border: "2px solid var(--border-heavy)",
                     padding: "8px 12px",
                     background: "var(--bg-color)"
                   }}
                 >
-                  <input
-                    type="text"
-                    value={scanMode === "github" ? repoUrl : repoPath}
-                    onChange={(event) =>
-                      scanMode === "github"
-                        ? setRepoUrl(event.target.value)
-                        : setRepoPath(event.target.value)
-                    }
-                    placeholder={
-                      scanMode === "github"
-                        ? "https://github.com/owner/repository"
-                        : "/path/to/your/repository"
-                    }
-                    style={{
-                      width: "100%",
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--text-main)",
-                      outline: "none",
-                      fontFamily: "inherit"
-                    }}
-                  />
+                  {scanMode === "upload" ? (
+                    <input
+                      type="file"
+                      accept=".zip,application/zip,application/x-zip-compressed"
+                      onChange={(event) => setZipFile(event.target.files?.[0] || null)}
+                      style={{
+                        width: "100%",
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-main)",
+                        outline: "none",
+                        fontFamily: "inherit"
+                      }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={scanMode === "github" ? repoUrl : repoPath}
+                      onChange={(event) =>
+                        scanMode === "github"
+                          ? setRepoUrl(event.target.value)
+                          : setRepoPath(event.target.value)
+                      }
+                      placeholder={
+                        scanMode === "github"
+                          ? "https://github.com/owner/repository"
+                          : "/path/to/your/repository"
+                      }
+                      style={{
+                        width: "100%",
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-main)",
+                        outline: "none",
+                        fontFamily: "inherit"
+                      }}
+                    />
+                  )}
                 </div>
 
                 <button
@@ -1147,6 +1191,12 @@ function AppContent() {
                   {loading ? "ANALYZING..." : "SCAN"}
                 </button>
               </form>
+
+              {scanMode === "upload" && (
+                <div style={{ marginTop: 10, color: "var(--text-muted, #888)", fontSize: 12 }}>
+                  ZIP only · 30 MB maximum · Python files are analyzed; code is not executed.
+                </div>
+              )}
 
               {error && (
                 <div

@@ -40,6 +40,7 @@ The application consists of a FastAPI backend that analyzes Python repositories 
 ### Repository Scanning
 - Scan local repositories using a filesystem path.
 - Scan public GitHub repositories using their URLs.
+- Upload a ZIP archive of a Python project for hosted scanning.
 - Discover Python source files.
 - Extract structural information and import relationships.
 - Report repository statistics and parsing errors.
@@ -224,6 +225,12 @@ Keep both servers running while using the application.
 7. Select files to inspect their relationships.
 8. Use search, folder grouping, zoom, and fullscreen controls to navigate the graph.
 
+### ZIP Upload
+
+On the hosted website, choose **UPLOAD ZIP**, select a `.zip` archive of your project, and click **SCAN**. Only Python source files are extracted and analyzed. ZIP uploads are limited to 30 MB, 2,000 Python files, 2 MB per Python file, and 100 MB of total extracted Python source. Unsafe paths and symbolic links are rejected. The archive is processed in a temporary directory that is removed after the scan.
+
+For the most reliable results, create a ZIP that contains your project folder and excludes `.git`, virtual environments, `node_modules`, build output, credentials, and other generated files.
+
 ## API Reference
 
 The backend exposes the following scanning endpoints.
@@ -267,6 +274,19 @@ curl -X POST http://127.0.0.1:8000/api/scan/github \
   -H "Content-Type: application/json" \
   -d '{"url": "https://github.com/owner/repository"}'
 ```
+
+### Scan an uploaded ZIP archive
+
+`POST /api/scan/upload` accepts `multipart/form-data` with a file field named `file`.
+
+Example command:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/scan/upload \\
+  -F "file=@project.zip"
+```
+
+The endpoint analyzes Python files only. Limits are 30 MB per upload, 2,000 Python files, 2 MB per Python file, and 100 MB total extracted Python source. Unsafe archive paths and symbolic links are rejected.
 
 Interactive API documentation is available at:
 
@@ -321,3 +341,33 @@ Mathematics and Computing undergraduate interested in software development, stat
   <strong>Codebase X-Ray</strong><br>
   <sub>Make complex codebases easier to see and understand.</sub>
 </p>
+
+## Testing
+
+From the `backend` directory:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+Build the frontend from the `frontend` directory:
+
+```bash
+npm ci
+npm run build
+```
+
+For local frontend development, copy `.env.example` to `.env.local` and adjust `VITE_API_URL` if the backend is not running at `http://127.0.0.1:8000`.
+
+## Deployment Notes
+
+- Deploy the FastAPI service with the `backend` directory as its root and start command `uvicorn app:app --host 0.0.0.0 --port $PORT`.
+- Deploy the frontend as a static site with `frontend` as its root, build command `npm ci && npm run build`, and publish directory `dist`.
+- Set `VITE_API_URL` on the frontend static site to the backend's HTTPS URL without a trailing slash. Vite variables are embedded at build time, so redeploy after changing this value.
+- Update the backend CORS allowlist in `backend/app.py` if the frontend's production domain changes.
+- Local filesystem paths are only accessible when the API runs on the same machine that owns the path. On the hosted website, use GitHub URLs or ZIP uploads.
+
+## Security and Scope
+
+Codebase X-Ray performs static analysis; it does not execute uploaded code. It currently analyzes Python source files. Uploads and public GitHub downloads have size and file-count limits. Do not upload secrets or private code unless you are comfortable sending it to the service operator.
